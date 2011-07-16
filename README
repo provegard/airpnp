@@ -1,0 +1,68 @@
+airpnp 0.1
+18 Jul 2011
+README
+=================
+
+Airpnp is a simple server that acts as a bridge between AirPlay devices (such as
+the iPhone or the iPad) and regular UPnP media renderers. Its mode of operation
+can be summarized as follows:
+
+* When running, detects UPnP devices on the network through M-SEARCH discovery
+  and notification monitoring.
+* For each MediaRenderer found, publishes an AirPlay service with the
+  corresponding name.
+* Converts incoming AirPlay commands to UPnP control messages which are sent to
+  the media renderer.
+
+The software is based on totem-plugin-airplay version 1.0.2, which is included.
+The server parts have been rewritten to use Twisted-based networking. The
+official home for the plugin is:
+
+     http://cgit.sukimashita.com/totem-plugin-airplay.git/.
+
+The software also uses UPnP code from pyupnp, which is included. The official
+home for pyupnp is:
+
+    http://code.google.com/p/pyupnp/
+
+
+Dependencies
+------------
+The code has been tested with Python 2.7, but probably works with some earlier
+2.x versions as well.
+
+External dependencies include Twisted and ElementTree.
+
+
+Installation
+------------
+There is currently nothing to install. Simply change to the airpnp directory
+and run:
+
+    python airpnp.py
+
+To run unit tests, run the following from the top-level directory:
+
+    python run_tests.py
+
+
+Contact Information
+-------------------
+Author: Per Rovegård
+Internet: http://airpnp.finkod.se
+E-mail: airpnp@finkod.se
+
+
+Copyright and Licensing
+-----------------------
+Pyupnp is licensed using the 3-clause BSD license. Totem-plugin-airplay is
+licensed using the MIT license. Airpnp as a whole is licensed using the
+3-clause BSD license.
+
+See the file LICENSE for the full license text.
+
+Changelog
+---------
+Version 0.1:
+First public release
+
