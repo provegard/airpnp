@@ -259,17 +259,20 @@ class DeviceDiscoveryService(object):
             if isinstance(answer, SoapError):
                 log.error('Error response for %s command to device %s: %s/%s' %
                           (msg.get_name(), device, answer.code, answer.desc))
-                err = True
+
+                # hide the device for a short while, hoping that the error is
+                # only temporary
+                reactor.callLater(0, self._flip, device, reactor)
             return answer
         except:
             error = sys.exc_info()[0]
             log.error('Error for %s command to device %s: %s' %
                       (msg.get_name(), device, error))
-            err = True
+
+            # treat the device as lost
+            reactor.callLater(0, self._device_expired, device.UDN)
+
             raise error
-        finally:
-            if err:
-                reactor.callLater(0, self._flip, device, reactor)
 
     def _flip(self, device, reactor):
         """Simulate a temporary device removal."""
