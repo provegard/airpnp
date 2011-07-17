@@ -36,8 +36,23 @@ External dependencies include Twisted and ElementTree.
 
 Installation
 ------------
-There is currently nothing to install. Simply change to the airpnp directory
-and run:
+There is currently nothing to install. See Running below.
+
+
+Configuration
+-------------
+Logging can be configured using the ~/.airpnprc file. The file is read using
+the logging.config.fileConfig function. See the AIRPNPRC file for an example.
+
+
+Running
+-------
+You may need to add a route for the 239 net:
+
+    route add -net 239.0.0.0 netmask 255.0.0.0 eth0
+
+To run the program, simply change to the airpnp directory and issue the
+following command:
 
     python airpnp.py
 
