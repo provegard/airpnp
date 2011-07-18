@@ -32,7 +32,8 @@ from upnp import UpnpBase, MSearchRequest, SoapError
 from cStringIO import StringIO
 from httplib import HTTPMessage
 from twisted.internet import reactor
-from twisted.internet.task import LoopingCall
+from twisted.application.service import Service, MultiService
+from twisted.application.internet import TimerService
 from util import send_soap_message, split_usn, get_max_age
 from device_builder import AsyncDeviceBuilder, DeviceContainer
 
@@ -106,7 +107,7 @@ class ActiveDeviceContainer(DeviceContainer):
             listener(udn)
 
 
-class DeviceDiscoveryService(object):
+class DeviceDiscoveryService(MultiService):
 
     """Service that discovers and tracks UPnP devices.
 
@@ -137,8 +138,28 @@ class DeviceDiscoveryService(object):
                         devices based on their "deviceType" attribute
 
         """
+        MultiService.__init__(self)
         self._sn_types.extend(sn_types)
         self._dev_types = device_types
+        self._builder = self._create_device_builder()
+
+        # create the UPnP listener service
+        UpnpService(self._datagram_handler).setServiceParent(self)
+        
+        # create the periodic M-SEARCH request service
+        msearch = MSearchRequest(self._datagram_handler)
+        TimerService(DISCOVERY_INTERVAL, self._msearch_discover,
+                     msearch).setServiceParent(self)
+
+    def _create_device_builder(self):
+        builder = AsyncDeviceBuilder(reactor, self._send_soap_message,
+                                     lambda device: device.deviceType
+                                     in self._dev_types)
+        builder.add_finished_listener(self._device_finished)
+        builder.add_rejected_listener(self._device_rejected)
+        builder.add_error_listener(self._device_error)
+
+        return builder
 
     def on_device_found(self, device):
         """Called when a device has been found."""
@@ -147,53 +168,6 @@ class DeviceDiscoveryService(object):
     def on_device_removed(self, device):
         """Called when a device has disappeared."""
         pass
-
-    def start(self, reactor):
-        """Start device discovery and tracking.
-
-        Start a listener for UPnP notifications, as well as a periodic 
-        distribution of M-SEARCH messages.
-
-        Arguments:
-        reactor -- the Twisted reactor to use for network communication
-
-        """
-        log.info('Starting device discovery')
-
-        def ssend(device, url, msg):
-            return self._send_soap_message(device, url, msg, reactor)
-
-        # Create a device builder
-        self._builder = AsyncDeviceBuilder(reactor, ssend,
-                                           lambda device: device.deviceType
-                                           in self._dev_types)
-        self._builder.add_finished_listener(self._device_finished)
-        self._builder.add_rejected_listener(self._device_rejected)
-        self._builder.add_error_listener(self._device_error)
-
-        # Start listening for UPnP notifications
-        self._ul = UpnpListener(self._datagram_handler)
-        self._ul.start(reactor)
-
-        # Send M-SEARCH requests periodically, starting now
-        msearch = MSearchRequest(self._datagram_handler)
-        self._loop = LoopingCall(msearch_discover, msearch, reactor)
-        self._loop.start(DISCOVERY_INTERVAL, True)
-
-    def stop(self):
-        """Stop device discovery and tracking."""
-        log.info('Stopping device discovery')
-
-        # Stop periodic M-SEARCH requests
-        self._loop.stop()
-
-        # Stop listening for UPnP notifications
-        self._ul.stop()
-
-        # Kill device containers (timers)
-        while len(self._devices) > 0:
-            holder = self._devices.popitem()[1]
-            holder.stop()
 
     def _datagram_handler(self, datagram, address):
         """Process incoming datagram, either response or notification."""
@@ -251,9 +225,8 @@ class DeviceDiscoveryService(object):
             self._devices[adc.get_udn()] = adc
             self._builder.build(adc)
 
-    def _send_soap_message(self, device, url, msg, reactor):
+    def _send_soap_message(self, device, url, msg):
         """Send a SOAP message and do error handling."""
-        err = False
         try:
             answer = send_soap_message(url, msg)
             if isinstance(answer, SoapError):
@@ -308,8 +281,13 @@ class DeviceDiscoveryService(object):
         # Publish the device
         self.on_device_found(device)
 
+    def _msearch_discover(self, msearch):
+        """Send M-SEARCH device discovery requests."""
+        reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
+        reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
 
-class UpnpListener(UpnpBase):
+
+class UpnpService(UpnpBase, Service):
 
     def __init__(self, handler):
         UpnpBase.__init__(self)
@@ -318,8 +296,10 @@ class UpnpListener(UpnpBase):
     def datagramReceived(self, datagram, address, outip):
         self.handler(datagram, address)
 
+    def startService(self):
+        Service.startService(self)
+        self.start(reactor)
 
-def msearch_discover(msearch, reactor):
-    """Send M-SEARCH device discovery requests."""
-    reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
-    reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
+    def stopService(self):
+        self.stop()
+        Service.stopService(self)

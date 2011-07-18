@@ -22,10 +22,11 @@
 
 import avahi
 import dbus
+from twisted.application.service import Service
 
 __all__ = ["ZeroconfService"]
 
-class ZeroconfService(object):
+class ZeroconfService(Service):
     def __init__(self, name, port, stype="_http._tcp", domain="", host="", text=""):
         self.name = name
         self.stype = stype
@@ -34,7 +35,8 @@ class ZeroconfService(object):
         self.port = port
         self.text = text
 
-    def publish(self):
+    def startService(self):
+        Service.startService(self)
         bus = dbus.SystemBus()
         server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
 
@@ -44,7 +46,7 @@ class ZeroconfService(object):
         g.Commit()
         self.group = g
 
-    def unpublish(self):
+    def stopService(self):
         if self.group is not None:
             self.group.Reset()
-
+        return Service.stopService(self)

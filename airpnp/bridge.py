@@ -27,18 +27,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
-import logging.config
-import os.path
-
-RCFILE = os.path.expanduser('~/.airpnprc')
-
-# Must configure logging before importing other modules
-if os.path.isfile(RCFILE):
-    logging.config.fileConfig(RCFILE)
-else:
-    logging.basicConfig(level='INFO')
-
-from twisted.internet import reactor
 from device_discovery import DeviceDiscoveryService
 from AirPlayService import AirPlayService
 from util import hms_to_sec, sec_to_hms
@@ -63,24 +51,18 @@ class BridgeServer(DeviceDiscoveryService):
     def __init__(self):
         DeviceDiscoveryService.__init__(self, MEDIA_RENDERER_TYPES,
                                         [MEDIA_RENDERER_DEVICE_TYPE])
-        self._cpts = {}
-
-    def stop(self):
-        DeviceDiscoveryService.stop(self)
-        while len(self._cpts) > 0:
-            cpoint = self._cpts.popitem()[1]
-            del cpoint
 
     def on_device_found(self, device):
         log.info('Found device %s with base URL %s' % (device,
                                                        device.get_base_url()))
-        self._cpts[device.UDN] = AVControlPoint(device, port=self._find_port())
+        avc = AVControlPoint(device, port=self._find_port())
+        avc.setName(device.UDN)
+        avc.setServiceParent(self)
 
     def on_device_removed(self, device):
         log.info('Lost device %s' % (device, ))
-        cpoint = self._cpts.pop(device.UDN)
-        self._ports.remove(cpoint.port)
-        cpoint.release()
+        avc = self.getServiceNamed(device.UDN)
+        avc.disownServiceParent()
 
     def _find_port(self):
         port = 22555
@@ -97,15 +79,15 @@ class AVControlPoint(AirPlayService):
     _position_pct = None
 
     def __init__(self, device, host="0.0.0.0", port=22555):
-        AirPlayService.__init__(self, reactor, device.friendlyName, host, port)
+        AirPlayService.__init__(self, device.friendlyName, host, port)
         self._connmgr = device.get_service_by_id(CN_MGR_SERVICE)
         self._avtransport = device.get_service_by_id(AVT_SERVICE)
         self._instance_id = self._allocate_instance_id()
         self.port = port
 
-    def release(self):
+    def stopService(self):
         self._release_instance_id(self._instance_id)
-        AirPlayService.release(self)
+        return AirPlayService.stopService(self)
 
     def get_scrub(self):
         posinfo = self._avtransport.GetPositionInfo(
@@ -235,14 +217,3 @@ class AVControlPoint(AirPlayService):
     def _release_instance_id(self, instance_id):
         if hasattr(self._connmgr, 'ConnectionComplete'):
             log.warn('ConnectionManager::ConnectionComplete not implemented')
-
-
-def main():
-    server = BridgeServer()
-    server.start(reactor)
-    reactor.addSystemEventTrigger("before", "shutdown", server.stop)
-
-
-if __name__ == "__main__":
-    reactor.callWhenRunning(main)
-    reactor.run()

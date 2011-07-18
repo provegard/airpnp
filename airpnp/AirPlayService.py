@@ -21,17 +21,16 @@
 # DEALINGS IN THE SOFTWARE.
 
 import platform
-import socket
-import threading
-import time
 import uuid
 import logging
 
-from datetime import datetime, date
+from datetime import datetime
 from urlparse import urlparse, parse_qsl
 from ZeroconfService import ZeroconfService
 
 from twisted.internet.protocol import Protocol, Factory
+from twisted.application.service import MultiService
+from twisted.application.internet import TCPServer
 from httplib import HTTPMessage
 from cStringIO import StringIO
 
@@ -121,7 +120,6 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
 
         # process the request and run the appropriate callback
         if (request.uri.find('/playback-info')>-1):
-            self.playback_info()
             content = '<?xml version="1.0" encoding="UTF-8"?>\
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
 <plist version="1.0">\
@@ -193,12 +191,11 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             service.rate(float(request.params['value']))
             answer = self.create_request()
         elif (request.type_ == 'PUT' and self.uri.find('/photo')>-1):
-            self.photo(request.body, request.headers['X-Apple-Transition'])
+            service.photo(request.body, request.headers['X-Apple-Transition'])
             answer = self.create_request()
         elif (request.uri.find('/slideshow-features')>-1):
             answer = self.create_request(404)
         elif (request.type_ == 'GET' and request.uri.find('/server-info')>-1):
-            self.server_info()
             content = '<?xml version="1.0" encoding="UTF-8"?>\
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
 <plist version="1.0">\
@@ -246,48 +243,9 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
         answer += "\nContent-Length: " + str(clength)
         if (header != ""):
             answer += "\n" + header
-        answer +="\n\n"
+        answer += "\n\n"
         answer += body
         return answer
-
-    def get_scrub(self):
-        return False
-
-    def set_scrub(self, position):
-        return False
-
-    def server_info(self):
-        return False
-
-    def playback_info(self):
-        return False
-
-    def play(self, location, position):
-        return False
-
-    def stop(self, info):
-        return False
-
-    def reverse(self, info):
-        return True
-
-    def slideshow_features(self):
-        return False
-
-    def photo(self, data, transition):
-        return False
-
-    def rate(self, speed):
-        return False
-
-    def volume(self, info):
-        return False
-
-    def authorize(self, info):
-        return False
-
-    def event(self, info):
-        return False
 
 
 class AirPlayFactory(Factory):
@@ -298,30 +256,57 @@ class AirPlayFactory(Factory):
         self.service = service
 
 
-class AirPlayService(object):
+class AirPlayService(MultiService):
 
-    def __init__(self, reactor, name=None, host="0.0.0.0", port=22555):
+    def __init__(self, name=None, host="0.0.0.0", port=22555):
+        MultiService.__init__(self)
         macstr = "%012X" % uuid.getnode()
         self.deviceid = ''.join("%s:" % macstr[i:i+2] for i in range(0, len(macstr), 2))[:-1]
         self.features = 0x07 # 0x77 on iOS 4.3.1
         self.model = "AppleTV2,1"
 
         # create TCP server
-        self.tcp = reactor.listenTCP(port, AirPlayFactory(self), 5)
+        TCPServer(port,  AirPlayFactory(self), 5).setServiceParent(self)
 
         # create avahi service
         if (name is None):
             name = "Airplay Service on " + platform.node()
-        self.zeroconf_service = ZeroconfService(name, port=port, stype="_airplay._tcp", text=["deviceid="+self.deviceid,"features="+hex(self.features),"model="+self.model])
+        zconf = ZeroconfService(name, port=port, stype="_airplay._tcp", text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model])
+        zconf.setServiceParent(self)
 
-        # publish avahi service
-        self.zeroconf_service.publish()
+        # for logging
+        self.name_ = name
+        self.host = host
+        self.port = port
 
-        log.info("AirPlayService '%s' running at %s:%d" % (name, host, port))
+    def startService(self):
+        MultiService.startService(self)
+        log.info("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
+                                                              self.port))
+    def stopService(self):
+        log.info("AirPlayService '%s' was stopped" % (self.name_, ))
+        return MultiService.stopService(self)
 
-    def release(self):
-        # unpublish avahi service
-        self.zeroconf_service.unpublish()
+    def get_scrub(self):
+        return 0, 0
 
-        # stop listening for requests
-        self.tcp.stopListening()
+    def is_playing(self):
+        return False
+
+    def set_scrub(self, position):
+        pass
+
+    def play(self, location, position):
+        pass
+
+    def stop(self, info):
+        pass
+
+    def reverse(self, info):
+        pass
+
+    def photo(self, data, transition):
+        pass
+
+    def rate(self, speed):
+        pass
