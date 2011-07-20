@@ -22,7 +22,6 @@
 
 import platform
 import uuid
-import logging
 
 from datetime import datetime
 from urlparse import urlparse, parse_qsl
@@ -31,10 +30,9 @@ from ZeroconfService import ZeroconfService
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
+from twisted.python import log
 from httplib import HTTPMessage
 from cStringIO import StringIO
-
-log = logging.getLogger('airpnp.airplayservice')
 
 __all__ = ["BaseAirPlayRequest", "AirPlayService", "AirPlayProtocolHandler"]
 
@@ -53,7 +51,7 @@ class AirPlayProtocolBase(Protocol):
     request = None
 
     def connectionMade(self):
-        log.info('AirPlay connection from %r', (self.transport.getPeer(), ))
+        log.msg('AirPlay connection from %r', (self.transport.getPeer(), ))
 
     def dataReceived(self, data):
         if self.request is None:
@@ -90,15 +88,9 @@ class AirPlayProtocolBase(Protocol):
             # reset the buffer to only contain the body part
             r.buffer = body
 
-            log.debug('Received AirPlay headers, uri = %s, content-length = %d'
-                      % (r.uri, r.content_length))
-
         if not r.headers is None and len(r.buffer) == r.content_length:
             r.body = r.buffer
-            log.debug('Received entire AirPlay message, body length = %d, processing...' 
-                      % (len(r.body), ))
             self.process_message(r)
-
             self.request = None
 
     def process_message(self, request):
@@ -215,8 +207,8 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             content = content % (service.deviceid, service.features, service.model)
             answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
         else:
-            log.error("ERROR: AirPlay - Unable to handle request \"%s\"" %
-                      (self.uri))
+            log.msg("ERROR: AirPlay - Unable to handle request \"%s\"" %
+                    (self.uri))
             answer = self.create_request(404)
 
         if(answer is not ""):
@@ -254,6 +246,7 @@ class AirPlayFactory(Factory):
 
     def __init__(self, service):
         self.service = service
+        self.noisy = False
 
 
 class AirPlayService(MultiService):
@@ -281,10 +274,10 @@ class AirPlayService(MultiService):
 
     def startService(self):
         MultiService.startService(self)
-        log.info("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
-                                                              self.port))
+        log.msg("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
+                                                             self.port))
     def stopService(self):
-        log.info("AirPlayService '%s' was stopped" % (self.name_, ))
+        log.msg("AirPlayService '%s' was stopped" % (self.name_, ))
         return MultiService.stopService(self)
 
     def get_scrub(self):

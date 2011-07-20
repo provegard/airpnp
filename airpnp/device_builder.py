@@ -26,10 +26,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
 from util import split_usn, fetch_url
 from xml.etree import ElementTree
 from device import Device
+from twisted.python import log
 
 __all__ = [
     'AsyncDeviceBuilder',
@@ -37,7 +37,6 @@ __all__ = [
     'DeviceContainer',
 ]
 
-log = logging.getLogger("airpnp.device-builder")
 
 class DeviceContainer(object):
 
@@ -244,8 +243,7 @@ class AsyncDeviceBuilder(object):
                 # rejected device, back to main thread
                 self.reactor.callFromThread(self._device_rejected, container)
         except BaseException, err:
-            log.error('An error occurred while creating a Device object: %s' %
-                      (err, ))
+            log.err(err, 'Failed to create Device object')
             # error, back to main thread
             self.reactor.callFromThread(self._device_error, err, container)
 

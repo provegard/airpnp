@@ -26,7 +26,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
 import sys
 from upnp import UpnpBase, MSearchRequest, SoapError
 from cStringIO import StringIO
@@ -34,10 +33,9 @@ from httplib import HTTPMessage
 from twisted.internet import reactor
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
+from twisted.python import log
 from util import send_soap_message, split_usn, get_max_age
 from device_builder import AsyncDeviceBuilder, DeviceContainer
-
-log = logging.getLogger("airpnp.device-discovery")
 
 # Seconds between m-search discoveries
 DISCOVERY_INTERVAL = 300
@@ -86,14 +84,10 @@ class ActiveDeviceContainer(DeviceContainer):
             udn = device.UDN
             timer = self._expire_timer
             if timer is None or not timer.active():
-                log.debug('Creating expire timer for %d seconds for device %s'
-                          % (seconds, device))
                 newtimer = reactor.callLater(seconds, self._device_expired,
                                              udn)
                 self._expire_timer = newtimer
             else:
-                log.debug(('Resetting expire timer for %d seconds for ' +
-                          'device %s') % (seconds, device))
                 timer.reset(seconds)
 
     def stop(self):
@@ -184,20 +178,18 @@ class DeviceDiscoveryService(MultiService):
         nts = headers['NTS']
         udn = split_usn(headers['USN'])[0]
         if not udn in self._ignored:
-            log.debug('Got NOTIFY from device with UDN %s, NTS = %s' % (udn,
-                                                                        nts))
             if nts == 'ssdp:alive':
                 self._handle_response(headers)
             elif nts == 'ssdp:byebye':
-                log.debug('Got bye-bye from device with UDN %s' % (udn, ))
                 self._device_expired(udn)
 
     def _device_expired(self, udn):
-        """Handle a bye-bye message from a device, or lack of renewal.."""
+        """Handle a bye-bye message from a device, or lack of renewal."""
         if udn in self._devices:
-            log.debug('Device with UDN %s expired, cleaning up...' % (udn, ))
-            device = self._devices.pop(udn)
-            device.stop()
+            adc = self._devices.pop(udn)
+            device = adc.get_device()
+            log.msg('Device %s expired or said goodbye' % (device, ))
+            adc.stop()
             self.on_device_removed(device)
 
     def _handle_response(self, headers):
@@ -216,9 +208,6 @@ class DeviceDiscoveryService(MultiService):
         """Start building a device if it seems to be a proper one."""
         adc = ActiveDeviceContainer(headers)
         if adc.get_type() in self._sn_types:
-            log.debug(('Found potential device candidate with type = %s, ' +
-                      'location = %s') % (adc.get_type(), headers['LOCATION']))
-
             # Put the device container in our dictionary before starting the
             # asyncrhonous build, as a guard so that we won't try multiple
             # builds for the same device.
@@ -230,8 +219,8 @@ class DeviceDiscoveryService(MultiService):
         try:
             answer = send_soap_message(url, msg)
             if isinstance(answer, SoapError):
-                log.error('Error response for %s command to device %s: %s/%s' %
-                          (msg.get_name(), device, answer.code, answer.desc))
+                log.msg('Error response for %s command to device %s: %s/%s' %
+                        (msg.get_name(), device, answer.code, answer.desc))
 
                 # hide the device for a short while, hoping that the error is
                 # only temporary
@@ -239,8 +228,8 @@ class DeviceDiscoveryService(MultiService):
             return answer
         except:
             error = sys.exc_info()[0]
-            log.error('Error for %s command to device %s: %s' %
-                      (msg.get_name(), device, error))
+            log.err(error, 'Failed to send command "%s" to device %s' %
+                    (msg.get_name(), device))
 
             # treat the device as lost
             reactor.callLater(0, self._device_expired, device.UDN)
@@ -262,16 +251,14 @@ class DeviceDiscoveryService(MultiService):
     def _device_rejected(self, event):
         """Handle device reject, mismatch against desired device type."""
         udn = event.get_udn()
-        device = self._devices.pop(udn)
-        device.stop()
-        log.debug('Ignoring device with UDN %s' % (udn, ))
+        adc = self._devices.pop(udn)
+        adc.stop()
+        log.msg('Adding device %s to ignore list' % (adc.get_device(), ))
         self._ignored.append(udn)
 
     def _device_finished(self, event):
         """Handle completion of device building."""
         device = event.get_device()
-        log.debug('Found matching device type: %s (%s)' %
-                  (device.deviceType, device))
 
         # Start the device container timer
         adc = self._devices[event.get_udn()]

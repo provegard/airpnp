@@ -26,7 +26,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
 import new
 from upnp import SoapMessage, SoapError, ns
 from urlparse import urljoin
@@ -36,8 +35,6 @@ __all__ = [
     'Service',
 ]
 
-log = logging.getLogger("airpnp.device")
-
 # Mandatory XML attributes for a device
 DEVICE_ATTRS = ['deviceType', 'friendlyName', 'manufacturer',
                 'modelName', 'modelNumber', 'UDN']
@@ -46,8 +43,6 @@ DEVICE_ATTRS = ['deviceType', 'friendlyName', 'manufacturer',
 # Mandatory XML attributes for a service
 SERVICE_ATTRS = ['serviceType', 'serviceId', 'SCPDURL',
                  'controlURL', 'eventSubURL']
-
-log = logging.getLogger('airpnp.device')
 
 
 def find_elements(element, namespace, path):
@@ -87,7 +82,6 @@ def add_xml_attrs(obj, element, namespace, attrs):
             raise ValueError('Missing attribute: %s' % (attr, ))
         else:
             val = val.strip()
-            log.debug('Setting attribute %s with value %s' % (attr, val))
             setattr(obj, attr, val)
 
 
@@ -196,7 +190,6 @@ class Service(object):
     def _add_actions(self, element, soap_sender):
         for action in find_elements(element, ns.service, 'actionList/action'):
             act = Action(self._device, action, soap_sender)
-            log.debug('Adding action with name %s' % (act.name, ))
             method = new.instancemethod(act, self, self.__class__)
             setattr(self, act.name, method)
 
@@ -222,8 +215,6 @@ class Action(object):
             self._arguments.append(Argument(argument))
 
     def __call__(self, service, **kwargs):
-        log.debug('Sending SOAP message for action %s, args = %r' %
-                  (self.name, kwargs))
         msg = SoapMessage(service.serviceType, self.name)
 
         # arrange the arguments by direction

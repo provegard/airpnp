@@ -26,21 +26,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
-import logging.config
-import os.path
-
-RCFILE = os.path.expanduser('~/.airpnprc')
-
-# Must configure logging before importing other modules
-if os.path.isfile(RCFILE):
-    logging.config.fileConfig(RCFILE)
-else:
-    logging.basicConfig(level='INFO')
-
 from bridge import BridgeServer
 from twisted.application.service import Application
 
 application = Application('airpnp')
 BridgeServer().setServiceParent(application)
-

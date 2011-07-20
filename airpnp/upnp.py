@@ -298,6 +298,7 @@ class SoapMiddleware(object):
 class SSDPServer(DatagramProtocol):
     def __init__(self, owner):
         self.owner = owner;
+        self.noisy = False
 
     def datagramReceived(self, data, addr):
         self.owner.datagramReceived(data, addr, get_outip(addr[0]))
@@ -746,6 +747,7 @@ class UpnpBase(object):
 class _dp(DatagramProtocol):
     def __init__(self, owner):
         self.owner = owner
+        self.noisy = False
 
     def datagramReceived(self, datagram, address):
         self.owner(datagram, address)

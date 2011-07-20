@@ -26,10 +26,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
 from device_discovery import DeviceDiscoveryService
 from AirPlayService import AirPlayService
 from util import hms_to_sec, sec_to_hms
+from twisted.python import log
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -41,8 +41,6 @@ MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE,
 CN_MGR_SERVICE = 'urn:upnp-org:serviceId:ConnectionManager'
 AVT_SERVICE = 'urn:upnp-org:serviceId:AVTransport'
 
-log = logging.getLogger("airpnp.bridge-server")
-
 
 class BridgeServer(DeviceDiscoveryService):
 
@@ -53,14 +51,14 @@ class BridgeServer(DeviceDiscoveryService):
                                         [MEDIA_RENDERER_DEVICE_TYPE])
 
     def on_device_found(self, device):
-        log.info('Found device %s with base URL %s' % (device,
-                                                       device.get_base_url()))
+        log.msg('Found device %s with base URL %s' % (device,
+                                                      device.get_base_url()))
         avc = AVControlPoint(device, port=self._find_port())
         avc.setName(device.UDN)
         avc.setServiceParent(self)
 
     def on_device_removed(self, device):
-        log.info('Lost device %s' % (device, ))
+        log.msg('Lost device %s' % (device, ))
         avc = self.getServiceNamed(device.UDN)
         avc.disownServiceParent()
 
@@ -95,28 +93,28 @@ class AVControlPoint(AirPlayService):
         if not self._uri is None:
             duration = hms_to_sec(posinfo['TrackDuration'])
             position = hms_to_sec(posinfo['RelTime'])
-            log.debug(('get_scrub -> GetPositionInfo -> %s, %s -> ' +
-                      'returning %f, %f') % (posinfo['TrackDuration'],
-                                             posinfo['RelTime'], duration,
-                                             position))
+            log.msg(('get_scrub -> GetPositionInfo -> %s, %s -> ' +
+                     'returning %f, %f') % (posinfo['TrackDuration'],
+                                            posinfo['RelTime'], duration,
+                                            position))
 
             if not self._position_pct is None:
                 self._try_seek_pct(duration, position)
 
             return duration, position
         else:
-            log.debug('get_scrub -> (no URI) -> returning 0.0, 0.0')
+            log.msg('get_scrub -> (no URI) -> returning 0.0, 0.0')
             return 0.0, 0.0
 
     def is_playing(self):
         if self._uri is not None:
             state = self._get_current_transport_state()
             playing = state == 'PLAYING'
-            log.debug('is_playing -> GetTransportInfo -> %s -> returning %r' %
-                      (state, playing))
+            log.msg('is_playing -> GetTransportInfo -> %s -> returning %r' %
+                    (state, playing))
             return playing
         else:
-            log.debug('is_playing -> (no URI) -> returning False')
+            log.msg('is_playing -> (no URI) -> returning False')
             return False
 
     def _get_current_transport_state(self):
@@ -127,19 +125,19 @@ class AVControlPoint(AirPlayService):
     def set_scrub(self, position):
         if self._uri is not None:
             hms = sec_to_hms(position)
-            log.debug('set_scrub (%f) -> Seek (%s)' % (position, hms))
+            log.msg('set_scrub (%f) -> Seek (%s)' % (position, hms))
             self._avtransport.Seek(InstanceID=self._instance_id,
                                    Unit='REL_TIME', Target=hms)
         else:
-            log.debug('set_scrub (%f) -> (no URI) -> saved for later' %
-                      (position, ))
+            log.msg('set_scrub (%f) -> (no URI) -> saved for later' %
+                    (position, ))
 
             # save the position so that we can user it later to seek
             self._pre_scrub = position
 
     def play(self, location, position):
-        log.debug('play (%s, %f) -> SetAVTransportURI + Play' % (location,
-                                                                 position))
+        log.msg('play (%s, %f) -> SetAVTransportURI + Play' % (location,
+                                                               position))
 
         # start loading of media, also set the URI to indicate that
         # we're playing
@@ -153,7 +151,7 @@ class AVControlPoint(AirPlayService):
 
         # if we have a saved scrub position, seek now
         if not self._pre_scrub is None:
-            log.debug('Seeking based on saved scrub position')
+            log.msg('Seeking based on saved scrub position')
             self.set_scrub(self._pre_scrub)
 
             # clear it because we have used it
@@ -165,13 +163,13 @@ class AVControlPoint(AirPlayService):
 
     def stop(self, info):
         if self._uri is not None:
-            log.debug('stop -> Stop')
+            log.msg('stop -> Stop')
             self._avtransport.Stop(InstanceID=self._instance_id)
 
             # clear the URI to indicate that we don't play anymore
             self._uri = None
         else:
-            log.debug('stop -> (no URI) -> ignored')
+            log.msg('stop -> (no URI) -> ignored')
 
     def reverse(self, info):
         pass
@@ -181,24 +179,24 @@ class AVControlPoint(AirPlayService):
             if (int(float(speed)) >= 1):
                 state = self._get_current_transport_state()
                 if not state == 'PLAYING' and not state == 'TRANSITIONING':
-                    log.debug('rate(%r) -> Play' % (speed, ))
+                    log.msg('rate(%r) -> Play' % (speed, ))
                     self._avtransport.Play(InstanceID=self._instance_id,
                                            Speed='1')
                 else:
-                    log.debug('rate(%r) -> ignored due to state %s' % (speed,
-                                                                       state))
+                    log.msg('rate(%r) -> ignored due to state %s' % (speed,
+                                                                     state))
 
                 if not self._position_pct is None:
                     duration, pos = self.get_scrub()
                     self._try_seek_pct(duration, pos)
             else:
-                log.debug('rate(%r) -> Pause' % (speed, ))
+                log.msg('rate(%r) -> Pause' % (speed, ))
                 self._avtransport.Pause(InstanceID=self._instance_id)
 
     def _try_seek_pct(self, duration, position):
         if duration > 0:
-            log.debug(('Has duration %f, can calculate position from ' +
-                      'percentage %f') % (duration, self._position_pct))
+            log.msg(('Has duration %f, can calculate position from ' +
+                     'percentage %f') % (duration, self._position_pct))
             targetoffset = duration * self._position_pct
 
             # clear the position percentage now that we've used it

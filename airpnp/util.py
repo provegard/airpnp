@@ -26,10 +26,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import logging
 import urllib2
 import re
 from upnp import SoapMessage, SoapError
+from twisted.python import log
 
 __all__ = [
     'fetch_url',
@@ -39,8 +39,6 @@ __all__ = [
     'split_usn',
     'get_max_age',
 ]
-
-log = logging.getLogger("airpnp.util")
 
 
 def fetch_url(url):
@@ -53,11 +51,10 @@ def fetch_url(url):
     """
     req = urllib2.Request(url)
 
-    log.debug('Fetching URL: %s' % (url, ))
     try:
         handle = urllib2.urlopen(req)
     except urllib2.URLError, err:
-        log.error('Failed to fetch URL %s because: %s' % (url, err))
+        log.err(err, 'Failed to fetch URL %s' % (url, ))
         raise err
 
     return handle
@@ -113,17 +110,17 @@ def send_soap_message(url, msg, mpost=False):
         response = SoapMessage.parse(handle)
     except urllib2.HTTPError, err:
         if err.code == 405 and not mpost:
-            log.debug('Got 405 response in response to SOAP message, trying' +
-                      'the M-POST way')
+            log.msg('Got 405 response in response to SOAP message, trying' +
+                    'the M-POST way')
             return send_soap_message(url, msg, True)
         elif err.code == 500:
             # SOAP error
             response = SoapError.parse(err.read())
         else:
-            log.error('Failed to send SOAP message: %s' % (err, ))
+            log.err(err, 'Failed to send SOAP message')
             raise err
     except urllib2.URLError, err:
-        log.error("Failed to send SOAP message: %s" % (err, ))
+        log.err(err, "Failed to send SOAP message")
         raise err
 
     return response
