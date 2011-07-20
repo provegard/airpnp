@@ -1,5 +1,5 @@
-airpnp 0.1
-18 Jul 2011
+airpnp 0.21
+21 Jul 2011
 README
 =================
 
@@ -41,8 +41,7 @@ There is currently nothing to install. See Running below.
 
 Configuration
 -------------
-Logging can be configured using the ~/.airpnprc file. The file is read using
-the logging.config.fileConfig function. See the AIRPNPRC file for an example.
+Currently there is nothing to configure for airpnp.
 
 
 Running
@@ -51,10 +50,14 @@ You may need to add a route for the 239 net:
 
     route add -net 239.0.0.0 netmask 255.0.0.0 eth0
 
-To run the program, simply change to the airpnp directory and issue the
-following command:
+To run airpnp, use the twistd runner. Change to the airpnp directory and issue
+the following command:
 
-    python airpnp.py
+    twistd -y airpnp.tac
+
+To run in the foreground, use the following command:
+
+    twistd -noy airpnp.tac
 
 To run unit tests, run the following from the top-level directory:
 
@@ -78,6 +81,12 @@ See the file LICENSE for the full license text.
 
 Changelog
 ---------
+Version 0.21:
+Updated this README, removed references to ~/.airpnprc
+
+Version 0.2:
+Adapted to twistd daemon, changed to use Twisted logging
+
 Version 0.1:
 First public release
 
