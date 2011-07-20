@@ -51,6 +51,7 @@ def fetch_url(url):
     """
     req = urllib2.Request(url)
 
+    log.msg('Fetching URL %s' % (url, ))
     try:
         handle = urllib2.urlopen(req)
     except urllib2.URLError, err:

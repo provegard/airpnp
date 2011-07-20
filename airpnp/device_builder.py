@@ -264,15 +264,18 @@ class AsyncDeviceBuilder(object):
 
     def _device_finished(self, container):
         event = DeviceEvent(self, container)
-        fire_event(event, self._finished_listeners)
+        log.callWithLogger(self, fire_event, event, self._finished_listeners)
 
     def _device_rejected(self, container):
         event = DeviceEvent(self, container)
-        fire_event(event, self._rejected_listeners)
+        log.callWithLogger(self, fire_event, event, self._rejected_listeners)
 
     def _device_error(self, error, container):
         event = DeviceEvent(self, container, error)
-        fire_event(event, self._error_listeners)
+        log.callWithLogger(self, fire_event, event, self._error_listeners)
+
+    def logPrefix(self):
+        return "device_build"
 
 
 def fire_event(event, listener_list):
