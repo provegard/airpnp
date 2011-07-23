@@ -26,6 +26,7 @@ import uuid
 from datetime import datetime
 from urlparse import urlparse, parse_qsl
 from ZeroconfService import ZeroconfService
+from plist import read_binary_plist
 
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.service import MultiService
@@ -36,8 +37,11 @@ from cStringIO import StringIO
 
 __all__ = ["BaseAirPlayRequest", "AirPlayService", "AirPlayProtocolHandler"]
 
+CT_BINARY_PLIST = 'application/x-apple-binary-plist'
+
+
 class Request(object):
-    "Request class used by AirPlayProtocolBase."
+    """Request class used by AirPlayProtocolBase."""
 
     # buffer for holding received data
     buffer = ""
@@ -51,7 +55,7 @@ class AirPlayProtocolBase(Protocol):
     request = None
 
     def connectionMade(self):
-        log.msg('AirPlay connection from %r', (self.transport.getPeer(), ))
+        log.msg('AirPlay connection from %r' % (self.transport.getPeer(), ))
 
     def dataReceived(self, data):
         if self.request is None:
@@ -103,6 +107,8 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
         try:
             return self._process(request)
         except:
+            # TODO: only log if not logged already
+            log.err(None, "Failed to process AirPlay request")
             answer = self.create_request(503)
             return answer
 
@@ -161,7 +167,8 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             content = content % (float(d), float(p), int(service.is_playing()), playbackBufferEmpty, readyToPlay, float(d), float(d))
             answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
         elif (request.uri.find('/play')>-1):
-            parsedbody = HTTPMessage(StringIO(request.body))
+            parsedbody = self.parse_body(request.headers, request.body)
+
             service.play(parsedbody['Content-Location'], float(parsedbody['Start-Position']))
             answer = self.create_request()
         elif (request.uri.find('/stop')>-1):
@@ -208,7 +215,7 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
         else:
             log.msg("ERROR: AirPlay - Unable to handle request \"%s\"" %
-                    (self.uri))
+                    (request.uri))
             answer = self.create_request(404)
 
         if(answer is not ""):
@@ -239,6 +246,15 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
         answer += body
         return answer
 
+    def parse_body(self, headers, body):
+        ctype = headers.get('content-type')
+        if ctype == CT_BINARY_PLIST:
+            parsedbody = read_binary_plist(StringIO(body))
+        else:
+            parsedbody = HTTPMessage(StringIO(body))
+        return parsedbody
+
+
 
 class AirPlayFactory(Factory):
 
@@ -255,7 +271,9 @@ class AirPlayService(MultiService):
         MultiService.__init__(self)
         macstr = "%012X" % uuid.getnode()
         self.deviceid = ''.join("%s:" % macstr[i:i+2] for i in range(0, len(macstr), 2))[:-1]
-        self.features = 0x07 # 0x77 on iOS 4.3.1
+        # 0x77 instead of 0x07 in order to support AirPlay from ordinary apps;
+        # also means that the body for play will be a binary plist.
+        self.features = 0x77
         self.model = "AppleTV2,1"
 
         # create TCP server
