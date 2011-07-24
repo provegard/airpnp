@@ -170,7 +170,10 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
         elif (request.uri.find('/play')>-1):
             parsedbody = self.parse_body(request.headers, request.body)
 
-            service.play(parsedbody['Content-Location'], float(parsedbody['Start-Position']))
+            # position may not be given for streaming media
+            position = parsedbody['Start-Position'] if \
+                    parsedbody.has_key('Start-Position') else 0.0
+            service.play(parsedbody['Content-Location'], position)
             answer = self.create_request()
         elif (request.uri.find('/stop')>-1):
             service.stop(request.headers)
