@@ -26,10 +26,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import aplog as log
 from util import split_usn, fetch_url
 from xml.etree import ElementTree
 from device import Device
-from twisted.python import log
 
 __all__ = [
     'AsyncDeviceBuilder',

@@ -22,6 +22,7 @@
 
 import platform
 import uuid
+import aplog as log
 
 from datetime import datetime
 from urlparse import urlparse, parse_qsl
@@ -31,7 +32,6 @@ from plist import read_binary_plist
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
-from twisted.python import log
 from httplib import HTTPMessage
 from cStringIO import StringIO
 
@@ -55,7 +55,7 @@ class AirPlayProtocolBase(Protocol):
     request = None
 
     def connectionMade(self):
-        log.msg('AirPlay connection from %r' % (self.transport.getPeer(), ))
+        log.msg(1, 'AirPlay connection from %r' % (self.transport.getPeer(), ))
 
     def dataReceived(self, data):
         if self.request is None:
@@ -104,10 +104,11 @@ class AirPlayProtocolBase(Protocol):
 class AirPlayProtocolHandler(AirPlayProtocolBase):
 
     def process_message(self, request):
+        log.msg(3, "AirPlay request for %s with headers %r and body '%s'" %
+                (request.uri, request.headers.items(), request.body))
         try:
             return self._process(request)
         except:
-            # TODO: only log if not logged already
             log.err(None, "Failed to process AirPlay request")
             answer = self.create_request(503)
             return answer
@@ -214,7 +215,7 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             content = content % (service.deviceid, service.features, service.model)
             answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
         else:
-            log.msg("ERROR: AirPlay - Unable to handle request \"%s\"" %
+            log.msg(1, "ERROR: AirPlay - Unable to handle request \"%s\"" %
                     (request.uri))
             answer = self.create_request(404)
 
@@ -292,10 +293,10 @@ class AirPlayService(MultiService):
 
     def startService(self):
         MultiService.startService(self)
-        log.msg("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
-                                                             self.port))
+        log.msg(1, "AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
+                                                                self.port))
     def stopService(self):
-        log.msg("AirPlayService '%s' was stopped" % (self.name_, ))
+        log.msg(1, "AirPlayService '%s' was stopped" % (self.name_, ))
         return MultiService.stopService(self)
 
     def get_scrub(self):

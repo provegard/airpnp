@@ -27,13 +27,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+import aplog as log
 from upnp import UpnpBase, MSearchRequest, SoapError
 from cStringIO import StringIO
 from httplib import HTTPMessage
 from twisted.internet import reactor
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
-from twisted.python import log
 from util import send_soap_message, split_usn, get_max_age
 from device_builder import AsyncDeviceBuilder, DeviceContainer
 
@@ -188,7 +188,7 @@ class DeviceDiscoveryService(MultiService):
         if udn in self._devices:
             adc = self._devices.pop(udn)
             device = adc.get_device()
-            log.msg('Device %s expired or said goodbye' % (device, ))
+            log.msg(2, 'Device %s expired or said goodbye' % (device, ))
             adc.stop()
             self.on_device_removed(device)
 
@@ -217,9 +217,13 @@ class DeviceDiscoveryService(MultiService):
     def _send_soap_message(self, device, url, msg):
         """Send a SOAP message and do error handling."""
         try:
+            log.msg(3, 'Sending SOAP message to device %s:\n%s' %
+                    (device, msg.tostring()))
             answer = send_soap_message(url, msg)
+            log.msg(3, 'Got response from device %s:\n%s' % (device,
+                                                             answer.tostring()))
             if isinstance(answer, SoapError):
-                log.msg('Error response for %s command to device %s: %s/%s' %
+                log.msg(1, 'Error response for %s command to device %s: %s/%s' %
                         (msg.get_name(), device, answer.code, answer.desc))
 
                 # hide the device for a short while, hoping that the error is
@@ -270,6 +274,7 @@ class DeviceDiscoveryService(MultiService):
 
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
+        log.msg(3, 'Sending out M-SEARCH discovery requests')
         reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
         reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
 
