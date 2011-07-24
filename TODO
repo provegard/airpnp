@@ -1,0 +1,10 @@
+* More robust error handling
+  - Handle 718/Invalid instance ID at Stop by retrying, then ignoring
+  - Disconnect iDevice rather than unpublishing and re-publishing the service
+  - Detect and react on TransportState ERROR_OCCURRED
+* Implement support for AirTunes, RAOP.
+* Detect and make use of MediaRenderer capabilities.
+* Lock out other iDevices when one iDevice is using the service
+* Supply media info using SetAVTransportURI/CurrentURIMetaData
+* When user stops playback and starts playing something else, disconnect iDevice
+* Get iDevice identity for nicer logging and playback info
