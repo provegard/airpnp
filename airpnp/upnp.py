@@ -33,6 +33,7 @@ from cStringIO import StringIO
 from xml.etree import ElementTree as ET
 from httplib import HTTPMessage
 from random import random
+from config import config
 
 from zope.interface import Interface, implements
 from twisted.internet import error
@@ -297,8 +298,8 @@ class SoapMiddleware(object):
 
 class SSDPServer(DatagramProtocol):
     def __init__(self, owner):
-        self.owner = owner;
-        self.noisy = False
+        self.owner = owner
+        self.noisy = config.loglevel() >= 3
 
     def datagramReceived(self, data, addr):
         self.owner.datagramReceived(data, addr, get_outip(addr[0]))
@@ -747,7 +748,7 @@ class UpnpBase(object):
 class _dp(DatagramProtocol):
     def __init__(self, owner):
         self.owner = owner
-        self.noisy = False
+        self.noisy = config.loglevel() >= 3
 
     def datagramReceived(self, datagram, address):
         self.owner(datagram, address)

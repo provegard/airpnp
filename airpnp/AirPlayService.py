@@ -28,6 +28,7 @@ from datetime import datetime
 from urlparse import urlparse, parse_qsl
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
+from config import config
 
 from twisted.internet.protocol import Protocol, Factory
 from twisted.application.service import MultiService
@@ -266,7 +267,7 @@ class AirPlayFactory(Factory):
 
     def __init__(self, service):
         self.service = service
-        self.noisy = False
+        self.noisy = config.loglevel() >= 3
 
 
 class AirPlayService(MultiService):
