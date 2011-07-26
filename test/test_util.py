@@ -5,10 +5,6 @@ from airpnp.upnp import SoapMessage, SoapError
 from cStringIO import StringIO
 
 
-def nosleep(seconds):
-    pass
-
-
 class RaisingOpener:
 
     def __init__(self):

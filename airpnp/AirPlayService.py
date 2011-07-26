@@ -36,7 +36,10 @@ from twisted.application.internet import TCPServer
 from httplib import HTTPMessage
 from cStringIO import StringIO
 
-__all__ = ["BaseAirPlayRequest", "AirPlayService", "AirPlayProtocolHandler"]
+__all__ = [
+    "AirPlayService",
+    "AirPlayProtocolHandler"
+]
 
 CT_BINARY_PLIST = 'application/x-apple-binary-plist'
 
@@ -174,7 +177,7 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             # position may not be given for streaming media
             position = parsedbody['Start-Position'] if \
                     parsedbody.has_key('Start-Position') else 0.0
-            service.play(parsedbody['Content-Location'], position)
+            service.play(parsedbody['Content-Location'], float(position))
             answer = self.create_request()
         elif (request.uri.find('/stop')>-1):
             service.stop(request.headers)
@@ -194,7 +197,7 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
         elif (request.type_ == 'POST' and request.uri.find('/rate')>-1):
             service.rate(float(request.params['value']))
             answer = self.create_request()
-        elif (request.type_ == 'PUT' and self.uri.find('/photo')>-1):
+        elif (request.type_ == 'PUT' and request.uri.find('/photo')>-1):
             service.photo(request.body, request.headers['X-Apple-Transition'])
             answer = self.create_request()
         elif (request.uri.find('/slideshow-features')>-1):
@@ -241,13 +244,13 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
             answer = "HTTP/1.1 503 Service Unavailable"
         elif (status == 101):
             answer = "HTTP/1.1 101 Switching Protocols"
-            answer += "\nUpgrade: PTTH/1.0"
-            answer += "\nConnection: Upgrade"
-        answer += "\nDate: " + self.get_datetime()
-        answer += "\nContent-Length: " + str(clength)
+            answer += "\r\nUpgrade: PTTH/1.0"
+            answer += "\r\nConnection: Upgrade"
+        answer += "\r\nDate: " + self.get_datetime()
+        answer += "\r\nContent-Length: " + str(clength)
         if (header != ""):
-            answer += "\n" + header
-        answer += "\n\n"
+            answer += "\r\n" + header
+        answer += "\r\n\r\n"
         answer += body
         return answer
 
@@ -270,7 +273,34 @@ class AirPlayFactory(Factory):
         self.noisy = config.loglevel() >= 3
 
 
-class AirPlayService(MultiService):
+class AirPlayOperations(object):
+
+    def get_scrub(self):
+        return 0, 0
+
+    def is_playing(self):
+        return False
+
+    def set_scrub(self, position):
+        pass
+
+    def play(self, location, position):
+        pass
+
+    def stop(self, info):
+        pass
+
+    def reverse(self, info):
+        pass
+
+    def photo(self, data, transition):
+        pass
+
+    def rate(self, speed):
+        pass
+
+
+class AirPlayService(MultiService, AirPlayOperations):
 
     def __init__(self, name=None, host="0.0.0.0", port=22555):
         MultiService.__init__(self)
@@ -302,27 +332,3 @@ class AirPlayService(MultiService):
     def stopService(self):
         log.msg(1, "AirPlayService '%s' was stopped" % (self.name_, ))
         return MultiService.stopService(self)
-
-    def get_scrub(self):
-        return 0, 0
-
-    def is_playing(self):
-        return False
-
-    def set_scrub(self, position):
-        pass
-
-    def play(self, location, position):
-        pass
-
-    def stop(self, info):
-        pass
-
-    def reverse(self, info):
-        pass
-
-    def photo(self, data, transition):
-        pass
-
-    def rate(self, speed):
-        pass
