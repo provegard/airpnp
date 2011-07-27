@@ -257,7 +257,7 @@ class DeviceDiscoveryService(MultiService):
         udn = event.get_udn()
         adc = self._devices.pop(udn)
         adc.stop()
-        log.msg('Adding device %s to ignore list' % (adc.get_device(), ))
+        log.msg(2, 'Adding device %s to ignore list' % (adc.get_device(), ))
         self._ignored.append(udn)
 
     def _device_finished(self, event):
