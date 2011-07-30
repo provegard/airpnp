@@ -24,106 +24,29 @@ import platform
 import uuid
 import aplog as log
 
-from datetime import datetime
-from urlparse import urlparse, parse_qsl
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
 from config import config
+from airplayserver import BaseResource, AirPlayServer
 
-from twisted.internet.protocol import Protocol, Factory
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
+from twisted.web import server, resource, error
 from httplib import HTTPMessage
 from cStringIO import StringIO
 
 __all__ = [
     "AirPlayService",
-    "AirPlayProtocolHandler"
+    "AirPlayOperations",
 ]
 
 CT_BINARY_PLIST = 'application/x-apple-binary-plist'
 
 
-class Request(object):
-    """Request class used by AirPlayProtocolBase."""
+class PlaybackInfoResource(BaseResource):
 
-    # buffer for holding received data
-    buffer = ""
-
-    # header dictionary, parsed from data
-    headers = None
-
-
-class AirPlayProtocolBase(Protocol):
-
-    request = None
-
-    def connectionMade(self):
-        log.msg(1, 'AirPlay connection from %r' % (self.transport.getPeer(), ))
-
-    def dataReceived(self, data):
-        if self.request is None:
-            self.request = Request()
-
-        r = self.request
-        r.buffer += data
-
-        if r.headers is None and r.buffer.find("\r\n\r\n") != -1:
-            # decode the header
-            # we split the message into HTTP headers and content body
-            header, body = r.buffer.split("\r\n\r\n", 1)
-
-            # separate the request line
-            reqline, headers = header.split("\r\n", 1)
-
-            # read request parameters
-            r.type_, r.uri, version = reqline.split()
-
-            # parse the HTTP headers
-            r.headers = HTTPMessage(StringIO(headers))
-
-            # parse any uri query parameters
-            r.params = None
-            if (r.uri.find('?')):
-                url = urlparse(r.uri)
-                if (url[4] is not ""):
-                    r.params = dict(parse_qsl(url[4]))
-                    r.uri = url[2]
-
-            # find out the size of the body
-            r.content_length = int(r.headers['Content-Length'])
-
-            # reset the buffer to only contain the body part
-            r.buffer = body
-
-        if not r.headers is None and len(r.buffer) == r.content_length:
-            r.body = r.buffer
-            self.process_message(r)
-            self.request = None
-
-    def process_message(self, request):
-        pass
-
-
-class AirPlayProtocolHandler(AirPlayProtocolBase):
-
-    def process_message(self, request):
-        log.msg(3, "AirPlay request for %s with headers %r and body '%s'" %
-                (request.uri, request.headers.items(), request.body))
-        try:
-            return self._process(request)
-        except:
-            log.err(None, "Failed to process AirPlay request")
-            answer = self.create_request(503)
-            return answer
-
-    def _process(self, request):
-        answer = ""
-        service = self.factory.service
-
-        # process the request and run the appropriate callback
-        if (request.uri.find('/playback-info')>-1):
-            content = '<?xml version="1.0" encoding="UTF-8"?>\
+    def render_GET(self, request):
+        content = '<?xml version="1.0" encoding="UTF-8"?>\
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
 <plist version="1.0">\
 <dict>\
@@ -161,49 +84,96 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
 </array>\
 </dict>\
 </plist>'
-            d, p = service.get_scrub()
-            if (d+p == 0):
-                playbackBufferEmpty = 'true'
-                readyToPlay = 'false'
-            else:
-                playbackBufferEmpty = 'false'
-                readyToPlay = 'true'
+        d, p = self.ops.get_scrub()
+        if (d+p == 0):
+            playbackBufferEmpty = 'true'
+            readyToPlay = 'false'
+        else:
+            playbackBufferEmpty = 'false'
+            readyToPlay = 'true'
 
-            content = content % (float(d), float(p), int(service.is_playing()), playbackBufferEmpty, readyToPlay, float(d), float(d))
-            answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
-        elif (request.uri.find('/play')>-1):
-            parsedbody = self.parse_body(request.headers, request.body)
+        content = content % (float(d), float(p), int(self.ops.is_playing()), playbackBufferEmpty, readyToPlay, float(d), float(d))
+        request.setHeader("Content-Type", "text/x-apple-plist+xml")
+        return content
 
-            # position may not be given for streaming media
-            position = parsedbody['Start-Position'] if \
-                    parsedbody.has_key('Start-Position') else 0.0
-            service.play(parsedbody['Content-Location'], float(position))
-            answer = self.create_request()
-        elif (request.uri.find('/stop')>-1):
-            service.stop(request.headers)
-            answer = self.create_request()
-        elif (request.uri.find('/scrub')>-1):
-            if request.type_ == 'GET':
-                d, p = service.get_scrub()
-                content = "duration: " + str(float(d))
-                content += "\nposition: " + str(float(p))
-                answer = self.create_request(200, "", content)
-            elif request.type_ == 'POST':
-                service.set_scrub(float(request.params['position']))
-                answer = self.create_request()
-        elif (request.uri.find('/reverse')>-1):
-            service.reverse(request.headers)
-            answer = self.create_request(101)
-        elif (request.type_ == 'POST' and request.uri.find('/rate')>-1):
-            service.rate(float(request.params['value']))
-            answer = self.create_request()
-        elif (request.type_ == 'PUT' and request.uri.find('/photo')>-1):
-            service.photo(request.body, request.headers['X-Apple-Transition'])
-            answer = self.create_request()
-        elif (request.uri.find('/slideshow-features')>-1):
-            answer = self.create_request(404)
-        elif (request.type_ == 'GET' and request.uri.find('/server-info')>-1):
-            content = '<?xml version="1.0" encoding="UTF-8"?>\
+
+class PlayResource(BaseResource):
+
+    def render_POST(self, request):
+        parsedbody = self.parse_body(request.getAllHeaders(),
+                                     request.content.read())
+
+        # position may not be given for streaming media
+        position = parsedbody['Start-Position'] if \
+                parsedbody.has_key('Start-Position') else 0.0
+        self.ops.play(parsedbody['Content-Location'], float(position))
+        return ""
+
+    def parse_body(self, headers, body):
+        ctype = headers.get('content-type')
+        if ctype == CT_BINARY_PLIST:
+            parsedbody = read_binary_plist(StringIO(body))
+        else:
+            parsedbody = HTTPMessage(StringIO(body))
+        return parsedbody
+
+
+class StopResource(BaseResource):
+
+    def render_POST(self, request):
+        self.ops.stop(request.getAllHeaders())
+        return ""
+
+
+class ScrubResource(BaseResource):
+
+    def render_GET(self, request):
+        d, p = self.ops.get_scrub()
+        content = "duration: " + str(float(d))
+        content += "\nposition: " + str(float(p))
+        return content
+
+    def render_POST(self, request):
+        position = request.args['position'][0]
+        self.ops.set_scrub(float(position))
+        return ""
+
+
+class ReverseResource(BaseResource):
+
+    def render_POST(self, request):
+        self.ops.reverse(request.getAllHeaders())
+        request.setResponseCode(101)
+        request.setHeader("Upgrade", "PTTH/1.0")
+        request.setHeader("Connection", "Upgrade")
+        return ""
+
+
+class RateResource(BaseResource):
+
+    def render_POST(self, request):
+        value = request.args['value'][0]
+        self.ops.rate(float(value))
+        return ""
+
+
+class PhotoResource(BaseResource):
+
+    def render_PUT(self, request):
+        self.ops.photo(request.content.read(), request.getHeader('X-Apple-Transition'))
+        return ""
+
+
+class ServerInfoResource(BaseResource):
+
+    def __init__(self, ops, deviceid, features, model):
+        BaseResource.__init__(self, ops)
+        self.deviceid = deviceid
+        self.features = features
+        self.model = model
+
+    def render_GET(self, request):
+        content = '<?xml version="1.0" encoding="UTF-8"?>\
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
 <plist version="1.0">\
 <dict>\
@@ -219,58 +189,9 @@ class AirPlayProtocolHandler(AirPlayProtocolBase):
 <string>101.10</string>\
 </dict>\
 </plist>'
-            content = content % (service.deviceid, service.features, service.model)
-            answer = self.create_request(200, "Content-Type: text/x-apple-plist+xml", content)
-        else:
-            log.msg(1, "ERROR: AirPlay - Unable to handle request \"%s\"" %
-                    (request.uri))
-            answer = self.create_request(404)
-
-        if(answer is not ""):
-            self.transport.write(answer)
-
-    def get_datetime(self):
-        today = datetime.now()
-        datestr = today.strftime("%a, %d %b %Y %H:%M:%S")
-        return datestr+" GMT"
-
-    def create_request(self, status = 200, header = "", body = ""):
-        clength = len(bytes(body))
-        if (status == 200):
-            answer = "HTTP/1.1 200 OK"
-        elif (status == 404):
-            answer = "HTTP/1.1 404 Not Found"
-        elif (status == 503):
-            answer = "HTTP/1.1 503 Service Unavailable"
-        elif (status == 101):
-            answer = "HTTP/1.1 101 Switching Protocols"
-            answer += "\r\nUpgrade: PTTH/1.0"
-            answer += "\r\nConnection: Upgrade"
-        answer += "\r\nDate: " + self.get_datetime()
-        answer += "\r\nContent-Length: " + str(clength)
-        if (header != ""):
-            answer += "\r\n" + header
-        answer += "\r\n\r\n"
-        answer += body
-        return answer
-
-    def parse_body(self, headers, body):
-        ctype = headers.get('content-type')
-        if ctype == CT_BINARY_PLIST:
-            parsedbody = read_binary_plist(StringIO(body))
-        else:
-            parsedbody = HTTPMessage(StringIO(body))
-        return parsedbody
-
-
-
-class AirPlayFactory(Factory):
-
-    protocol = AirPlayProtocolHandler
-
-    def __init__(self, service):
-        self.service = service
-        self.noisy = config.loglevel() >= 3
+        content = content % (self.deviceid, self.features, self.model)
+        request.setHeader("Content-Type", "text/x-apple-plist+xml")
+        return content
 
 
 class AirPlayOperations(object):
@@ -300,10 +221,13 @@ class AirPlayOperations(object):
         pass
 
 
-class AirPlayService(MultiService, AirPlayOperations):
+class AirPlayService(MultiService):
 
-    def __init__(self, name=None, host="0.0.0.0", port=22555):
+    def __init__(self, ops, name=None, host="0.0.0.0", port=22555):
         MultiService.__init__(self)
+
+        self.ops = ops
+
         macstr = "%012X" % uuid.getnode()
         self.deviceid = ''.join("%s:" % macstr[i:i+2] for i in range(0, len(macstr), 2))[:-1]
         # 0x77 instead of 0x07 in order to support AirPlay from ordinary apps;
@@ -312,7 +236,7 @@ class AirPlayService(MultiService, AirPlayOperations):
         self.model = "AppleTV2,1"
 
         # create TCP server
-        TCPServer(port,  AirPlayFactory(self), 5).setServiceParent(self)
+        TCPServer(port, AirPlayServer(self.create_site()), 5).setServiceParent(self)
 
         # create avahi service
         if (name is None):
@@ -324,6 +248,21 @@ class AirPlayService(MultiService, AirPlayOperations):
         self.name_ = name
         self.host = host
         self.port = port
+
+    def create_site(self):
+        root = error.NoResource()
+        root.putChild("playback-info", PlaybackInfoResource(self.ops))
+        root.putChild("play", PlayResource(self.ops))
+        root.putChild("stop", StopResource(self.ops))
+        root.putChild("scrub", ScrubResource(self.ops))
+        root.putChild("reverse", ReverseResource(self.ops))
+        root.putChild("rate", RateResource(self.ops))
+        root.putChild("photo", PhotoResource(self.ops))
+        root.putChild("slideshow-features", error.NoResource())
+        root.putChild("server-info", ServerInfoResource(self.ops, self.deviceid,
+                                                        self.features,
+                                                        self.model))
+        return root
 
     def startService(self):
         MultiService.startService(self)

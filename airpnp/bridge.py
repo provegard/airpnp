@@ -28,7 +28,7 @@
 
 import aplog as log
 from device_discovery import DeviceDiscoveryService
-from AirPlayService import AirPlayService
+from AirPlayService import AirPlayService, AirPlayOperations
 from util import hms_to_sec, sec_to_hms
 from config import config
 
@@ -54,7 +54,8 @@ class BridgeServer(DeviceDiscoveryService):
     def on_device_found(self, device):
         log.msg(1, 'Found device %s with base URL %s' % (device,
                                                          device.get_base_url()))
-        avc = AVControlPoint(device, port=self._find_port())
+        cpoint = AVControlPoint(device)
+        avc = AirPlayService(cpoint, device.friendlyName, port=self._find_port())
         avc.setName(device.UDN)
         avc.setServiceParent(self)
 
@@ -72,23 +73,34 @@ class BridgeServer(DeviceDiscoveryService):
         return port
 
 
-class AVControlPoint(AirPlayService):
+class AVControlPoint(AirPlayOperations):
 
     _uri = None
     _pre_scrub = None
     _position_pct = None
+    _client = None
+    _instance_id = None
 
-    def __init__(self, device, host="0.0.0.0", port=22555):
-        AirPlayService.__init__(self, device.friendlyName, host, port)
+    def __init__(self, device):
         self._connmgr = device.get_service_by_id(CN_MGR_SERVICE)
         self._avtransport = device.get_service_by_id(AVT_SERVICE)
-        self._instance_id = self._allocate_instance_id()
-        self.port = port
         self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
 
-    def stopService(self):
-        self._release_instance_id(self._instance_id)
-        return AirPlayService.stopService(self)
+    @property
+    def client(self):
+        return self._client
+
+    @client.setter
+    def client(self, value):
+        if not value is None and not self._client is None:
+            log.msg(1, "Rejecting client %r since device is busy (current "
+                    "client = %r)" % (value, self._client))
+            raise ValueError("Device is busy")
+        self._client = value
+        if value is None:
+            self._release_instance_id(self._instance_id)
+        else:
+            self._instance_id = self._allocate_instance_id()
 
     def get_scrub(self):
         posinfo = self._avtransport.GetPositionInfo(
@@ -169,6 +181,9 @@ class AVControlPoint(AirPlayService):
 
             # clear the URI to indicate that we don't play anymore
             self._uri = None
+
+            # clear the client, so that we can accept another
+            self.client = None
 
     def reverse(self, info):
         pass
