@@ -1,0 +1,3 @@
+[airpnp]
+# 1 = standard, 2 = operation debug, 3 = network debug
+loglevel=1

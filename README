@@ -1,5 +1,5 @@
-airpnp 0.21
-21 Jul 2011
+airpnp 0.22
+1 Aug 2011
 README
 =================
 
@@ -31,7 +31,8 @@ Dependencies
 The code has been tested with Python 2.7, but probably works with some earlier
 2.x versions as well.
 
-External dependencies include Twisted and ElementTree.
+External dependencies include Twisted and ElementTree. For running tests, the
+Mock module (http://www.voidspace.org.uk/python/mock/) is required.
 
 
 Installation
@@ -41,7 +42,16 @@ There is currently nothing to install. See Running below.
 
 Configuration
 -------------
-Currently there is nothing to configure for airpnp.
+Configuration is done in ~/.airpnprc, which uses a win.ini-like format. The
+only supported setting at the moment is "loglevel", which can be set to an
+integer from 0 to 3. The log levels mean:
+
+0 - only twistd/Twisted logging, not recommended
+1 - basic airpnp messages
+2 - include detailed messages about operations
+3 - include detailed messages about network communication (protocols)
+
+A sample AIRPNPRC file is provided.
 
 
 Running
