@@ -86,7 +86,13 @@ def add_xml_attrs(obj, element, namespace, attrs):
 
 
 class CommandError(Exception):
-    pass
+
+    def __init__(self, reason, soap_error):
+        Exception.__init__(self, reason)
+        self._err = soap_error
+
+    def get_soap_error(self):
+        return self._err
 
 
 class Device(object):
@@ -232,7 +238,8 @@ class Action(object):
         response = self._soap_sender(self._device, service.controlURL, msg)
         if isinstance(response, SoapError):
             raise CommandError('Command error: %s/%s' % (response.code,
-                                                         response.desc))
+                                                         response.desc),
+                               response)
         # populate the output dictionary
         ret = {}
         for arg in outargs:

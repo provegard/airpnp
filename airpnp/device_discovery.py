@@ -223,27 +223,15 @@ class DeviceDiscoveryService(MultiService):
             log.msg(3, 'Got response from device %s:\n%s' % (device,
                                                              answer.tostring()))
             if isinstance(answer, SoapError):
+                # log only, don't raise - assume caller handles the error
                 log.msg(1, 'Error response for %s command to device %s: %s/%s' %
                         (msg.get_name(), device, answer.code, answer.desc))
-
-                # hide the device for a short while, hoping that the error is
-                # only temporary
-                reactor.callLater(0, self._flip, device, reactor)
             return answer
         except:
-            error = sys.exc_info()[0]
-            log.err(error, 'Failed to send command "%s" to device %s' %
+            log.err(None, 'Failed to send command "%s" to device %s' %
                     (msg.get_name(), device))
 
-            # treat the device as lost
-            reactor.callLater(0, self._device_expired, device.UDN)
-
-            raise error
-
-    def _flip(self, device, reactor):
-        """Simulate a temporary device removal."""
-        self.on_device_removed(device)
-        reactor.callLater(1, self.on_device_found, device)
+            raise
 
     def _device_error(self, event):
         """Handle error that occurred when building a device."""

@@ -27,6 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import aplog as log
+from device import CommandError
 from device_discovery import DeviceDiscoveryService
 from AirPlayService import AirPlayService, AirPlayOperations
 from util import hms_to_sec, sec_to_hms
@@ -92,7 +93,8 @@ class AVControlPoint(AirPlayOperations):
 
     @client.setter
     def client(self, value):
-        if not value is None and not self._client is None:
+        if not value is None and not self._client is None \
+           and value.host != self._client.host:
             log.msg(1, "Rejecting client %r since device is busy (current "
                     "client = %r)" % (value, self._client))
             raise ValueError("Device is busy")
@@ -177,13 +179,32 @@ class AVControlPoint(AirPlayOperations):
     def stop(self, info):
         if self._uri is not None:
             self.msg(1, 'Stopping playback')
-            self._avtransport.Stop(InstanceID=self._instance_id)
+            if not self._try_stop(1):
+                self.msg(1, "Failed to stop playback, device may still be "
+                         "in a playing state")
 
             # clear the URI to indicate that we don't play anymore
             self._uri = None
 
             # clear the client, so that we can accept another
             self.client = None
+
+    def _try_stop(self, retries):
+        try:
+            self._avtransport.Stop(InstanceID=self._instance_id)
+            return True
+        except CommandError, e:
+            soap_err = e.get_soap_error()
+            if soap_err.code == '718':
+                self.msg(2, "Got 718 (invalid instance ID) for stop request, "
+                         "tries left = %d" % (retries, ))
+                if retries:
+                    return self._try_stop(retries - 1)
+                else:
+                    # ignore
+                    return False
+            else:
+                raise e
 
     def reverse(self, info):
         pass
