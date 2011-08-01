@@ -44,6 +44,12 @@ def create_config():
     parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
     if os.path.isfile(rcfile):
         parser.read(rcfile)
+
+    # If the file doesn't exist or doesn't have the proper section, we want the
+    # defaults to take effect rather than getting a NoSectionError.
+    if not parser.has_section("airpnp"):
+        parser.add_section("airpnp")
+
     return Config(parser)
 
 
