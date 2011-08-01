@@ -31,8 +31,19 @@ Dependencies
 The code has been tested with Python 2.7, but probably works with some earlier
 2.x versions as well.
 
-External dependencies include Twisted and ElementTree. For running tests, the
-Mock module (http://www.voidspace.org.uk/python/mock/) is required.
+External dependencies include Twisted Web, Avahi, Routes and Mock (the latter
+is only necessary for running tests). On a standard Ubuntu 11.04 server setup,
+the following commands install the required dependencies:
+
+    sudo apt-get install python-twisted-web python-routes python-avahi
+
+For running tests:
+
+    sudo apt-get install python-setuptools
+    sudo easy_install mock
+
+Version 0.7.0 of python-mock that exists in the Natty repositories is not
+sufficient. As of this writing, easy_install provides version 0.8.0beta1.
 
 
 Installation
@@ -56,7 +67,7 @@ A sample AIRPNPRC file is provided.
 
 Running
 -------
-You may need to add a route for the 239 net:
+You *may* need to add a route for the 239 net:
 
     route add -net 239.0.0.0 netmask 255.0.0.0 eth0
 
@@ -91,6 +102,9 @@ See the file LICENSE for the full license text.
 
 Changelog
 ---------
+Version 0.22:
+Updated error handling, added support for playing from all iDevice apps.
+
 Version 0.21:
 Updated this README, removed references to ~/.airpnprc
 
