@@ -45,6 +45,10 @@ For running tests:
 Version 0.7.0 of python-mock that exists in the Natty repositories is not
 sufficient. As of this writing, easy_install provides version 0.8.0beta1.
 
+The avahi daemon must be installed:
+
+    sudo apt-get install avahi-daemon
+
 
 Installation
 ------------
@@ -69,7 +73,12 @@ Running
 -------
 You *may* need to add a route for the 239 net:
 
-    route add -net 239.0.0.0 netmask 255.0.0.0 eth0
+    sudo route add -net 239.0.0.0 netmask 255.0.0.0 eth0
+
+If avahi and dbus are not running, then:
+
+    sudo service dbus start
+    sudo service avahi-daemon start
 
 To run airpnp, use the twistd runner. Change to the airpnp directory and issue
 the following command:
