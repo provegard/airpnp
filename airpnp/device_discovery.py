@@ -118,23 +118,27 @@ class DeviceDiscoveryService(MultiService):
     # List of UDNs of devices that are being ignored
     _ignored = []
 
-    # Device/service types to look for
+    # Device/service types to look for in UPnP messages
     _sn_types = ['upnp:rootdevice']
 
-    def __init__(self, sn_types=[], device_types=[]): # pylint: disable-msg=W0102
+    def __init__(self, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
         """Initialize the service.
 
         Arguments:
-        sn_types     -- list of device and/or service types to look for; other
-                        types will be ignored. "upnp:rootdevice" is
-                        automatically tracked, and should not be in this list.
-        device_types -- list of interesting device types, used to filter out
-                        devices based on their "deviceType" attribute
+        sn_types          -- list of device and/or service types to look for in
+                             UPnP notifications and responses; other types will
+                             be ignored. "upnp:rootdevice" is automatically
+                             tracked, and should not be in this list.
+        device_types      -- list of interesting device types, used to filter
+                             out devices based on their "deviceType" attribute
+        required_services -- if non-empty, list of services that the device
+                             must have for it to be considered
 
         """
         MultiService.__init__(self)
         self._sn_types.extend(sn_types)
         self._dev_types = device_types
+        self._req_services = required_services
         self._builder = self._create_device_builder()
 
         # create the UPnP listener service
@@ -147,13 +151,29 @@ class DeviceDiscoveryService(MultiService):
 
     def _create_device_builder(self):
         builder = AsyncDeviceBuilder(reactor, self._send_soap_message,
-                                     lambda device: device.deviceType
-                                     in self._dev_types)
+                                     self._is_device_interesting)
         builder.add_finished_listener(self._device_finished)
         builder.add_rejected_listener(self._device_rejected)
         builder.add_error_listener(self._device_error)
 
         return builder
+
+    def _is_device_interesting(self, device):
+        # the device must have an approved device type
+        if not device.deviceType in self._dev_types:
+            reason = "device type %s is not recognized" % (device.deviceType, )
+            return (False, reason)
+
+        # the device must contain all required services
+        req_services = set(self._req_services)
+        act_services = set(device.get_service_ids())
+        if not req_services.issubset(act_services):
+            missing = req_services.difference(act_services)
+            reason = "services %s are missing" % (list(missing), )
+            return (False, reason)
+
+        # passed all tests, device is interesting
+        return (True, None)
 
     def on_device_found(self, device):
         """Called when a device has been found."""
@@ -245,7 +265,8 @@ class DeviceDiscoveryService(MultiService):
         udn = event.get_udn()
         adc = self._devices.pop(udn)
         adc.stop()
-        log.msg(2, 'Adding device %s to ignore list' % (adc.get_device(), ))
+        log.msg(2, 'Adding device %s to ignore list, because %s' %
+                (adc.get_device(), event.get_reason()))
         self._ignored.append(udn)
 
     def _device_finished(self, event):

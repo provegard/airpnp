@@ -42,6 +42,7 @@ MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE,
 
 CN_MGR_SERVICE = 'urn:upnp-org:serviceId:ConnectionManager'
 AVT_SERVICE = 'urn:upnp-org:serviceId:AVTransport'
+REQ_SERVICES = [CN_MGR_SERVICE, AVT_SERVICE]
 
 
 class BridgeServer(DeviceDiscoveryService):
@@ -50,7 +51,8 @@ class BridgeServer(DeviceDiscoveryService):
 
     def __init__(self):
         DeviceDiscoveryService.__init__(self, MEDIA_RENDERER_TYPES,
-                                        [MEDIA_RENDERER_DEVICE_TYPE])
+                                        [MEDIA_RENDERER_DEVICE_TYPE],
+                                        REQ_SERVICES)
 
     def on_device_found(self, device):
         log.msg(1, 'Found device %s with base URL %s' % (device,

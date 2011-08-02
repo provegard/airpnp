@@ -104,18 +104,20 @@ class DeviceEvent(object):
 
     """Event class for events fired from an AsyncDeviceBuilder."""
 
-    def __init__(self, source, device_container, error=None):
+    def __init__(self, source, device_container, error=None, reason=None):
         """Initialize a new event object.
 
         Arguments:
         source           -- the originator of the event (typically the builder)
         device_container -- the DeviceContainer instance passed to the builder
         error            -- an error object if an error was raised
+        reason           -- a reason for a rejection
 
         """
         self._source = source
         self._device_container = device_container
         self._error = error
+        self._reason = reason
 
     def get_udn(self):
         """Return the UDN of the Device associated with this event."""
@@ -136,6 +138,14 @@ class DeviceEvent(object):
 
         """
         return self._error
+
+    def get_reason(self):
+        """Return the reason, if any, associated with this event.
+
+        Typically, the reason is used to know why a device was rejected.
+
+        """
+        return self._reason
 
 
 class AsyncDeviceBuilder(object):
@@ -172,7 +182,9 @@ class AsyncDeviceBuilder(object):
         soap_sender -- passed to the created Device object
         filter_     -- optional callable that receives the created device to
                        determine if the builder should continue with service
-                       initialization
+                       initialization. Should return a tuple of (bool, string),
+                       where the bool is the continue flag, and the string is
+                       a reason in case the continue flag is False.
 
         If the filter returns False for a device, a 'rejected' event will be
         fired to registered listeners.
@@ -229,7 +241,10 @@ class AsyncDeviceBuilder(object):
             container.set_device(device)
 
             # determine if the device is accepted
-            accepted = self._filter is None or self._filter(device)
+            if self._filter is None:
+                accepted, reason = True, None
+            else:
+                accepted, reason = self._filter(device)
 
             # if so, continue with services, otherwise we're done
             if accepted:
@@ -241,7 +256,8 @@ class AsyncDeviceBuilder(object):
                 self.reactor.callFromThread(self._device_finished, container)
             else:
                 # rejected device, back to main thread
-                self.reactor.callFromThread(self._device_rejected, container)
+                self.reactor.callFromThread(self._device_rejected, container,
+                                            reason)
         except BaseException, err:
             log.err(err, 'Failed to create Device object')
             # error, back to main thread
@@ -266,8 +282,8 @@ class AsyncDeviceBuilder(object):
         event = DeviceEvent(self, container)
         log.callWithLogger(self, fire_event, event, self._finished_listeners)
 
-    def _device_rejected(self, container):
-        event = DeviceEvent(self, container)
+    def _device_rejected(self, container, reason):
+        event = DeviceEvent(self, container, reason=reason)
         log.callWithLogger(self, fire_event, event, self._rejected_listeners)
 
     def _device_error(self, error, container):

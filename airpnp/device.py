@@ -134,6 +134,10 @@ class Device(object):
         """Return an immutable list of services for this device."""
         return self._services.viewvalues()
 
+    def get_service_ids(self):
+        """Return an immutable list of IDs of services for this device."""
+        return self._services.viewkeys()
+
     def get_service_by_id(self, sid):
         """Return a service based on its ID."""
         return self._services[sid]
