@@ -32,6 +32,7 @@ from device_discovery import DeviceDiscoveryService
 from AirPlayService import AirPlayService, AirPlayOperations
 from util import hms_to_sec, sec_to_hms
 from config import config
+from interactive import InteractiveWeb
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -53,6 +54,20 @@ class BridgeServer(DeviceDiscoveryService):
         DeviceDiscoveryService.__init__(self, MEDIA_RENDERER_TYPES,
                                         [MEDIA_RENDERER_DEVICE_TYPE],
                                         REQ_SERVICES)
+        
+        if config.interactive_web_enabled():
+            iwebport = config.interactive_web_port()
+            self.iweb = InteractiveWeb(iwebport)
+            self.iweb.setServiceParent(self)
+        else:
+            self.iweb = None
+
+    def startService(self):
+        if self.iweb:
+            # apparently, logging in __init__ is too early
+            iwebport = self.iweb.port
+            log.msg(1, "Starting interactive web at port %d" % (iwebport, ))
+        DeviceDiscoveryService.startService(self)
 
     def on_device_found(self, device):
         log.msg(1, 'Found device %s with base URL %s' % (device,
@@ -61,12 +76,18 @@ class BridgeServer(DeviceDiscoveryService):
         avc = AirPlayService(cpoint, device.friendlyName, port=self._find_port())
         avc.setName(device.UDN)
         avc.setServiceParent(self)
+        
+        if self.iweb:
+            self.iweb.add_device(device) 
 
     def on_device_removed(self, device):
         log.msg(1, 'Lost device %s' % (device, ))
         avc = self.getServiceNamed(device.UDN)
         avc.disownServiceParent()
         self._ports.remove(avc.port)
+
+        if self.iweb:
+            self.iweb.remove_device(device)
 
     def _find_port(self):
         port = 22555

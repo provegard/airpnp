@@ -182,6 +182,7 @@ class Service(object):
         self._resolve_urls([attr for attr in SERVICE_ATTRS if
                             attr.endswith('URL')], base_url)
         self._device = device
+        self.operations = []
 
     def initialize(self, scpd_element, soap_sender):
         """Initialize this service object with service actions.
@@ -202,6 +203,7 @@ class Service(object):
             act = Action(self._device, action, soap_sender)
             method = new.instancemethod(act, self, self.__class__)
             setattr(self, act.name, method)
+            self.operations.append(act.name)
 
     def _resolve_urls(self, attrs, base_url):
         for attr in attrs:
@@ -214,7 +216,7 @@ class Action(object):
 
     def __init__(self, device, element, soap_sender):
         add_xml_attrs(self, element, ns.service, ['name'])
-        self._arguments = []
+        self.arguments = []
         self._add_arguments(element)
         self._soap_sender = soap_sender
         self._device = device
@@ -222,14 +224,14 @@ class Action(object):
     def _add_arguments(self, element):
         for argument in find_elements(element, ns.service,
                                       'argumentList/argument'):
-            self._arguments.append(Argument(argument))
+            self.arguments.append(Argument(argument))
 
     def __call__(self, service, **kwargs):
         msg = SoapMessage(service.serviceType, self.name)
 
         # arrange the arguments by direction
-        inargs = [arg for arg in self._arguments if arg.direction == 'in']
-        outargs = [arg for arg in self._arguments if arg.direction == 'out']
+        inargs = [arg for arg in self.arguments if arg.direction == 'in']
+        outargs = [arg for arg in self.arguments if arg.direction == 'out']
 
         # update the message with input argument values
         for arg in inargs:

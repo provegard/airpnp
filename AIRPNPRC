@@ -1,3 +1,10 @@
 [airpnp]
 # 1 = standard, 2 = operation debug, 3 = network debug
 loglevel=1
+
+# on/yes to enable Interactive Web
+interactive_web=no
+
+# port for Interactive Web
+interactive_web_port=28080
+

@@ -33,6 +33,8 @@ __all__ = [
 
 DEFAULTS = {
     "loglevel": "1",
+    "interactive_web": "no",
+    "interactive_web_port": "28080",
 }
 
 
@@ -65,6 +67,14 @@ class Config(object):
     def loglevel(self):
         """Return the configured log level."""
         return self._parser.getint("airpnp", "loglevel")
+
+    def interactive_web_enabled(self):
+        """Return whether interactive web should be enabled or not."""
+        return self._parser.getboolean("airpnp", "interactive_web")
+
+    def interactive_web_port(self):
+        """Return the port to use for interactive web."""
+        return self._parser.getint("airpnp", "interactive_web_port")
 
 
 try:
