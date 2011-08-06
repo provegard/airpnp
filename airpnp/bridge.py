@@ -27,12 +27,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import aplog as log
+import uuid
 from device import CommandError
 from device_discovery import DeviceDiscoveryService
 from AirPlayService import AirPlayService, AirPlayOperations
 from util import hms_to_sec, sec_to_hms
 from config import config
 from interactive import InteractiveWeb
+from http import DynamicResourceServer
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -55,12 +57,17 @@ class BridgeServer(DeviceDiscoveryService):
                                         [MEDIA_RENDERER_DEVICE_TYPE],
                                         REQ_SERVICES)
         
+        # optionally add a server for the Interactive Web
         if config.interactive_web_enabled():
             iwebport = config.interactive_web_port()
             self.iweb = InteractiveWeb(iwebport)
             self.iweb.setServiceParent(self)
         else:
             self.iweb = None
+
+        # add a server for serving photos to UPnP devices
+        self.photoweb = DynamicResourceServer(0, 5)
+        self.photoweb.setServiceParent(self)
 
     def startService(self):
         if self.iweb:
@@ -72,7 +79,7 @@ class BridgeServer(DeviceDiscoveryService):
     def on_device_found(self, device):
         log.msg(1, 'Found device %s with base URL %s' % (device,
                                                          device.get_base_url()))
-        cpoint = AVControlPoint(device)
+        cpoint = AVControlPoint(device, self.photoweb)
         avc = AirPlayService(cpoint, device.friendlyName, port=self._find_port())
         avc.setName(device.UDN)
         avc.setServiceParent(self)
@@ -104,11 +111,13 @@ class AVControlPoint(AirPlayOperations):
     _position_pct = None
     _client = None
     _instance_id = None
+    _photo = None
 
-    def __init__(self, device):
+    def __init__(self, device, photoweb):
         self._connmgr = device.get_service_by_id(CN_MGR_SERVICE)
         self._avtransport = device.get_service_by_id(AVT_SERVICE)
         self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
+        self._photoweb = photoweb
 
     @property
     def client(self):
@@ -176,7 +185,6 @@ class AVControlPoint(AirPlayOperations):
         else:
             self.msg(1, 'Starting playback of %s' % (location, ))
 
-
         # start loading of media, also set the URI to indicate that
         # we're playing
         self._avtransport.SetAVTransportURI(InstanceID=self._instance_id,
@@ -208,6 +216,11 @@ class AVControlPoint(AirPlayOperations):
 
             # clear the URI to indicate that we don't play anymore
             self._uri = None
+
+            # unpublish any published photo
+            if not self._photo is None:
+                self._photoweb.unpublish(self._photo)
+                self._photo = None
 
             # clear the client, so that we can accept another
             self.client = None
@@ -251,6 +264,36 @@ class AVControlPoint(AirPlayOperations):
                 self.msg(1, 'Pausing playback')
                 self._avtransport.Pause(InstanceID=self._instance_id)
 
+    def photo(self, data, transition):
+        ctype, ext = get_image_type(data)
+
+        # create a random name for the photo
+        name = str(uuid.uuid4()) + ext
+
+        # remote any previous photo
+        if not self._photo is None:
+            self._photoweb.unpublish(self._photo)
+
+        # publish the new photo
+        self._photoweb.publish(name, ctype, data)
+        self._photo = name
+
+        # create the URI
+        hostname = config.hostname()
+        uri = "http://%s:%d/%s" % (hostname, self._photoweb.port, name)
+
+        self.msg(1, "Showing photo, published at %s" % (uri, ))
+
+        # start loading of media, also set the URI to indicate that
+        # we're playing
+        self._avtransport.SetAVTransportURI(InstanceID=self._instance_id,
+                                            CurrentURI=uri,
+                                            CurrentURIMetaData='')
+        self._uri = uri
+
+        # show the photo (no-op if we're already playing)
+        self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
+
     def _try_seek_pct(self, duration, position):
         if duration > 0:
             self.msg(2, ('Has duration %f, can calculate position from ' +
@@ -273,3 +316,10 @@ class AVControlPoint(AirPlayOperations):
     def _release_instance_id(self, instance_id):
         if hasattr(self._connmgr, 'ConnectionComplete'):
             self.msg(2, 'ConnectionManager::ConnectionComplete not implemented!')
+
+
+def get_image_type(data):
+    """Return a tuple of (content type, extension) for the image data."""
+    if data[:2] == "\xff\xd8":
+        return ("image/jpeg", ".jpg")
+    return ("image/unknown", ".bin")

@@ -26,6 +26,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import socket
+
 __all__ = [
     'config'
 ]
@@ -35,6 +37,7 @@ DEFAULTS = {
     "loglevel": "1",
     "interactive_web": "no",
     "interactive_web_port": "28080",
+    "hostname": socket.getfqdn(),
 }
 
 
@@ -75,6 +78,10 @@ class Config(object):
     def interactive_web_port(self):
         """Return the port to use for interactive web."""
         return self._parser.getint("airpnp", "interactive_web_port")
+
+    def hostname(self):
+        """Return the host name to use for URLs."""
+        return self._parser.get("airpnp", "hostname")
 
 
 try:

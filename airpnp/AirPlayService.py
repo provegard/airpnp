@@ -194,6 +194,28 @@ class ServerInfoResource(BaseResource):
         return content
 
 
+class SlideshowFeaturesResource(BaseResource):
+
+    def render_GET(self, request):
+        content = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>themes</key>
+<array>
+<dict>
+<key>key</key>
+<string>UPnP</string>
+<key>name</key>
+<string>UPnP</string>
+</dict>
+</array>
+</dict>
+</plist>"""
+        request.setHeader("Content-Type", "text/x-apple-plist+xml")
+        return content
+
+
 class AirPlayOperations(object):
 
     def get_scrub(self):
@@ -258,7 +280,7 @@ class AirPlayService(MultiService):
         root.putChild("reverse", ReverseResource(self.ops))
         root.putChild("rate", RateResource(self.ops))
         root.putChild("photo", PhotoResource(self.ops))
-        root.putChild("slideshow-features", error.NoResource())
+        root.putChild("slideshow-features", SlideshowFeaturesResource(self.ops))
         root.putChild("server-info", ServerInfoResource(self.ops, self.deviceid,
                                                         self.features,
                                                         self.model))
