@@ -31,11 +31,11 @@ Dependencies
 The code has been tested with Python 2.7, but probably works with some earlier
 2.x versions as well.
 
-External dependencies include Twisted Web, Avahi, Routes and Mock (the latter
-is only necessary for running tests). On a standard Ubuntu 11.04 server setup,
-the following commands install the required dependencies:
+External dependencies include Twisted Web, Avahi, and Mock (the latter is only
+necessary for running tests). On a standard Ubuntu 11.04 server setup, the
+following commands install the required dependencies:
 
-    sudo apt-get install python-twisted-web python-routes python-avahi
+    sudo apt-get install python-twisted-web python-avahi
 
 For running tests:
 

@@ -43,8 +43,6 @@ from twisted.internet.threads import blockingCallFromThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python.threadable import isInIOThread
 from twisted.web import server, resource, wsgi, static
-from routes import Mapper
-from routes.middleware import RoutesMiddleware
 import webob
 
 
@@ -524,6 +522,7 @@ class UpnpBase(object):
     SSDP_INTERVAL = 0.020
 
     def __init__(self, mapper=None):
+        from routes.middleware import RoutesMiddleware
         self.started = False
         self.reactor = None
         self.interfaces = []
@@ -540,6 +539,7 @@ class UpnpBase(object):
 
     @staticmethod
     def make_mapper():
+        from routes import Mapper
         m = Mapper()
         m.connect(None, '/mt/{name}/{id:.*?}', controller='mt', action='get')
         m.connect(None, '/upnp/{udn}/{sid}/{action}', controller='upnp', action='desc')
