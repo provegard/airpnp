@@ -27,7 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import aplog as log
-from upnp import UpnpBase, MSearchRequest, SoapError
+from upnp import UpnpBase, MSearchRequest, SoapError, SSDPServer
 from cStringIO import StringIO
 from httplib import HTTPMessage
 from twisted.internet import reactor, defer
@@ -213,21 +213,31 @@ class DeviceDiscoveryService(MultiService):
         reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
 
 
-class UpnpService(UpnpBase, Service):
+class UpnpService(Service):
 
     def __init__(self, handler):
-        UpnpBase.__init__(self)
         self.handler = handler
+        self.interface = '0.0.0.0'
 
     def datagramReceived(self, datagram, address, outip):
         self.handler(datagram, address)
 
     def startService(self):
         Service.startService(self)
-        self.start(reactor)
+
+        # start ssdp server
+        self.ssdp = reactor.listenMulticast(UpnpBase.SSDP_PORT,
+                                            SSDPServer(self),
+                                            interface=self.interface,
+                                            listenMultiple=True)
+        self.ssdp.setLoopbackMode(1)
+        self.ssdp.joinGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
 
     def stopService(self):
-        self.stop()
+        # stop ssdp server
+        self.ssdp.leaveGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
+        self.ssdp.stopListening()
+
         Service.stopService(self)
 
 
