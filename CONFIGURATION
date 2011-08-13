@@ -1,0 +1,49 @@
+CONFIGURATION
+=================
+
+Airpnp is configured through a file called .airpnprc, located in the current
+user's home directory (i.e., ~/.airpnprc). The configuration file follows a
+win.ini-like format, with sections and key-value pairs. Currently, the only
+recognized section is "airpnp". See the AIRPNPRC file for an example.
+
+
+Configuration parameters
+------------------------
+The following configuration parameters are recognized by airpnp:
+
+* loglevel
+
+Integer value from 0 to 3. The different log levels mean:
+
+0 - only twistd/Twisted logging (not recommended)
+1 - basic airpnp messages
+2 - include detailed messages about operations
+3 - include detailed messages about network communication (protocols)
+
+The default value is 1.
+
+
+* interactive_web
+
+Boolean value (yes/no, on/off, True/False) that determines if the Interactive
+Web server is started or not. The server hosts a very simple web that allows a
+user to test the detected UPnP devices by sending control messages to them.
+
+The default value is no.
+
+
+* interactive_web_port
+
+Integer value that specifies the port for the Interactive Web.
+
+The default value is 28080.
+
+
+* hostname
+
+The host name used for dynamic URIs published to UPnP devices. Currently, such
+URIs are only used for photos uploaded from AirPlay clients.
+
+The host name can be a name or an IP address. The default value is the fully
+qualified host name of the local computer.
+
