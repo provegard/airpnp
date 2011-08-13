@@ -27,14 +27,28 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from config import config
-from twisted.web import server, resource, static
+from twisted.web import server, resource, static, client
 from twisted.application.internet import TCPServer
 
 
 __all__ = [
     'HTTPServer',
     'DynamicResourceServer',
+    'get_page',
 ]
+
+
+def get_page(url, *args, **kwargs):
+    """Download a web page as a string.
+
+    Return a deferred, which will callback with a page (as a string) or errback
+    with a description of the error. Unlike Twisted's twisted.client.getPage,
+    this method uses a factory whose noisiness is determined by the log level.
+    
+    """
+    return client._makeGetterFactory(url, HTTPClientFactoryEx,
+                                     contextFactory=None,
+                                     *args, **kwargs).deferred
 
 
 class HTTPSite(server.Site):
@@ -45,6 +59,13 @@ class HTTPSite(server.Site):
         channel = server.Site.buildProtocol(self, addr)
         channel.noisy = config.loglevel() >= 3
         return channel
+
+
+class HTTPClientFactoryEx(client.HTTPClientFactory):
+
+    def __init__(self, url, *args, **kwargs):
+        client.HTTPClientFactory.__init__(self, url, *args, **kwargs)
+        self.noisy = config.loglevel() >= 3
 
 
 class HTTPServer(TCPServer):

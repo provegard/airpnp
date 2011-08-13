@@ -32,33 +32,12 @@ import aplog as log
 from upnp import SoapMessage, SoapError
 
 __all__ = [
-    'fetch_url',
     'send_soap_message',
     'hms_to_sec',
     'sec_to_hms',
     'split_usn',
     'get_max_age',
 ]
-
-
-def fetch_url(url):
-    """
-    Download data from the specified URL, and return a file-like object.
-    
-    Wrapper around urllib2.urlopen with no additional logic but logging.
-    Any error raised by urllib2.urlopen is re-raised by this function.
-
-    """
-    req = urllib2.Request(url)
-
-    log.msg(2, 'Fetching URL %s' % (url, ))
-    try:
-        handle = urllib2.urlopen(req)
-    except urllib2.URLError, err:
-        log.err(err, 'Failed to fetch URL %s' % (url, ))
-        raise err
-
-    return handle
 
 
 class MPOSTRequest(urllib2.Request):
@@ -232,7 +211,7 @@ def get_max_age(headers):
     """
     ret = None
     cache_control = headers.get('CACHE-CONTROL')
-    if not cache_control is None:
+    if cache_control:
         parts = re.split(r'\s*=\s*', cache_control)
         if len(parts) == 2 and parts[0] == 'max-age' and re.match(r'^\d+$',
                                                                   parts[1]):

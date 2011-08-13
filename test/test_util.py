@@ -158,35 +158,6 @@ class TestSendSoapMessage(unittest.TestCase):
                              '"urn:schemas-upnp-org:service:ConnectionManager:1#GetCurrentConnectionIDs"')
 
 
-class TestFetchUrl(unittest.TestCase):
-
-    def setUp(self):
-        self.old_opener = urllib2._opener
-
-    def tearDown(self):
-        urllib2.install_opener(self.old_opener)
-
-    def test_request_with_url(self):
-        # Mock Opener
-        class Opener:
-            def open(self, req, data=None, timeout=0):
-                self.req = req
-                return None
-
-        o = Opener()
-        urllib2.install_opener(o)
-        fetch_url('http://www.dummy.com')
-
-        self.assertEqual(o.req.__class__, urllib2.Request)
-        self.assertEqual(o.req.get_full_url(), 'http://www.dummy.com')
-
-    def test_reraise_url_error(self):
-        o = RaisingOpener()
-        urllib2.install_opener(o)
-
-        self.assertRaises(urllib2.URLError, fetch_url, 'http://www.dummy.com')
-
-
 class TestHmsToSec(unittest.TestCase):
 
     def test_hour_conversion(self):

@@ -26,79 +26,19 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import sys
 import aplog as log
 from upnp import UpnpBase, MSearchRequest, SoapError
 from cStringIO import StringIO
 from httplib import HTTPMessage
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
 from util import send_soap_message, split_usn, get_max_age
-from device_builder import AsyncDeviceBuilder, DeviceContainer
+from device_builder import DeviceRejectedError, DeviceBuilder
+
 
 # Seconds between m-search discoveries
 DISCOVERY_INTERVAL = 300
-
-
-class ActiveDeviceContainer(DeviceContainer):
-
-    """DeviceContainer sub class that adds the notion of an active device.
-
-    The first time a client calls the touch(headers) method, a timer is started
-    based on the "max-age" directive in the "CACHE-CONTROL" HTTP header. 
-    Subsequent calls to the touch(headers) method renew (reset) the timer. When
-    the timer has reached zero, an event is fired to all 'expire' listeners.
-
-    """
-
-    # Expire timer, initially not created
-    _expire_timer = None
-
-    # List of 'expire' listeners
-    _expire_listeners = []
-
-    def add_expire_listener(self, listener):
-        """Add an 'expire' listener.
-        
-        The listener must be a callable and will receive the UDN of the device
-        whose timer has expired.
-
-        """
-        self._expire_listeners.append(listener)
-
-    def touch(self, headers):
-        """Start or reset the device timer based on UPnP HTTP headers.
-
-        If the expire timer hasn't been started before, it will be when this
-        method is called. Otherwise, the timer will be reset. The timer time
-        is taken from the "max-age" directive of the "CACHE-CONTROL" header.
-
-        Arguments:
-        headers -- dictionary of UPnP HTTP headers
-
-        """
-        device = self.get_device()
-        seconds = get_max_age(headers)
-        if not seconds is None:
-            udn = device.UDN
-            timer = self._expire_timer
-            if timer is None or not timer.active():
-                newtimer = reactor.callLater(seconds, self._device_expired,
-                                             udn)
-                self._expire_timer = newtimer
-            else:
-                timer.reset(seconds)
-
-    def stop(self):
-        """Stop the device timer if it is running."""
-        if not self._expire_timer is None and self._expire_timer.active():
-            self._expire_timer.cancel()
-
-    def _device_expired(self, udn):
-        """Handle the case when a device hasn't renewed itself."""
-        for listener in self._expire_listeners:
-            listener(udn)
 
 
 class DeviceDiscoveryService(MultiService):
@@ -111,15 +51,6 @@ class DeviceDiscoveryService(MultiService):
     called. A client should subclass this class and implement those methods.
 
     """
-
-    # Dictionary of DeviceContainer objects, keyed by UDN
-    _devices = {}
-
-    # List of UDNs of devices that are being ignored
-    _ignored = []
-
-    # Device/service types to look for in UPnP messages
-    _sn_types = ['upnp:rootdevice']
 
     def __init__(self, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
         """Initialize the service.
@@ -136,10 +67,12 @@ class DeviceDiscoveryService(MultiService):
 
         """
         MultiService.__init__(self)
-        self._sn_types.extend(sn_types)
+        self._builders = {}
+        self._devices = {}
+        self._ignored = []
+        self._sn_types = ['upnp:rootdevice'] + sn_types
         self._dev_types = device_types
         self._req_services = required_services
-        self._builder = self._create_device_builder()
 
         # create the UPnP listener service
         UpnpService(self._datagram_handler).setServiceParent(self)
@@ -149,20 +82,11 @@ class DeviceDiscoveryService(MultiService):
         TimerService(DISCOVERY_INTERVAL, self._msearch_discover,
                      msearch).setServiceParent(self)
 
-    def _create_device_builder(self):
-        builder = AsyncDeviceBuilder(reactor, self._send_soap_message,
-                                     self._is_device_interesting)
-        builder.add_finished_listener(self._device_finished)
-        builder.add_rejected_listener(self._device_rejected)
-        builder.add_error_listener(self._device_error)
-
-        return builder
-
     def _is_device_interesting(self, device):
         # the device must have an approved device type
         if not device.deviceType in self._dev_types:
             reason = "device type %s is not recognized" % (device.deviceType, )
-            return (False, reason)
+            return False, reason
 
         # the device must contain all required services
         req_services = set(self._req_services)
@@ -170,10 +94,10 @@ class DeviceDiscoveryService(MultiService):
         if not req_services.issubset(act_services):
             missing = req_services.difference(act_services)
             reason = "services %s are missing" % (list(missing), )
-            return (False, reason)
+            return False, reason
 
         # passed all tests, device is interesting
-        return (True, None)
+        return True, None
 
     def on_device_found(self, device):
         """Called when a device has been found."""
@@ -185,54 +109,56 @@ class DeviceDiscoveryService(MultiService):
 
     def _datagram_handler(self, datagram, address):
         """Process incoming datagram, either response or notification."""
-        req_line, data = datagram.split('\r\n', 1)
-        headers = HTTPMessage(StringIO(data))
-        method = req_line.split(' ')[0]
-        if method == 'NOTIFY':
-            self._handle_notify(headers)
+        umessage = UpnpMessage(datagram)
+        if umessage.is_notification():
+            self._handle_notify(umessage)
         else:
-            self._handle_response(headers)
+            self._handle_response(umessage)
 
-    def _handle_notify(self, headers):
+    def _handle_notify(self, umessage):
         """Handle a notification message from a device."""
-        nts = headers['NTS']
-        udn = split_usn(headers['USN'])[0]
+        udn = umessage.get_udn()
         if not udn in self._ignored:
+            nts = umessage.get_notification_sub_type()
             if nts == 'ssdp:alive':
-                self._handle_response(headers)
+                self._handle_response(umessage)
             elif nts == 'ssdp:byebye':
-                self._device_expired(udn)
+                self._device_expired(umessage.get_udn())
 
     def _device_expired(self, udn):
         """Handle a bye-bye message from a device, or lack of renewal."""
         if udn in self._devices:
-            adc = self._devices.pop(udn)
-            device = adc.get_device()
-            log.msg(2, 'Device %s expired or said goodbye' % (device, ))
-            adc.stop()
-            self.on_device_removed(device)
+            builder = self._builders.pop(udn, None)
+            if builder:
+                builder.cancel()
+            mgr = self._devices.pop(udn)
+            log.msg(2, 'Device %s expired or said goodbye' % (mgr.device, ))
+            mgr.stop()
+            self.on_device_removed(mgr.device)
 
-    def _handle_response(self, headers):
+    def _handle_response(self, umessage):
         """Handle response to M-SEARCH message."""
-        usn = headers.get('USN')
-        if not usn is None:
-            udn = split_usn(usn)[0]
-            if not udn in self._ignored:
-                adc = self._devices.get(udn)
-                if adc is None:
-                    self._new_device(headers)
-                elif adc.has_device():
-                    adc.touch(headers)
+        udn = umessage.get_udn()
+        if udn and not udn in self._ignored:
+            mgr = self._devices.get(udn)
+            if mgr:
+                mgr.touch(umessage)
+            elif not udn in self._builders:
+                self._build_device(umessage)
 
-    def _new_device(self, headers):
+    def _build_device(self, umessage):
         """Start building a device if it seems to be a proper one."""
-        adc = ActiveDeviceContainer(headers)
-        if adc.get_type() in self._sn_types:
-            # Put the device container in our dictionary before starting the
-            # asyncrhonous build, as a guard so that we won't try multiple
-            # builds for the same device.
-            self._devices[adc.get_udn()] = adc
-            self._builder.build(adc)
+        if umessage.get_type() in self._sn_types:
+            udn = umessage.get_udn()
+            builder = DeviceBuilder(self._send_soap_message,
+                                    self._is_device_interesting)
+            d = builder.build(umessage.get_location())
+            
+            d.addCallback(self._device_finished, umessage)
+            d.addErrback(self._device_error, udn)
+
+            log.msg(3, "Starting build of device with UDN = %s" % (udn, ))
+            self._builders[udn] = d
 
     def _send_soap_message(self, device, url, msg):
         """Send a SOAP message and do error handling."""
@@ -253,30 +179,29 @@ class DeviceDiscoveryService(MultiService):
 
             raise
 
-    def _device_error(self, event):
+    def _device_error(self, fail, udn):
         """Handle error that occurred when building a device."""
         # Remove the device so that we retry it on the next notify
         # or m-search result.
-        device = self._devices.pop(event.get_udn())
-        device.stop()
+        if not fail.check(defer.CancelledError):
+            del self._builders[udn]
+            #mgr = self._devices.pop(udn)
+            #mgr.stop()
+            if fail.check(DeviceRejectedError):
+                device = fail.value.device
+                log.msg(2, 'Adding device %s to ignore list, because %s' %
+                        (device, fail.getErrorMessage()))
+                self._ignored.append(udn)
+            else:
+                log.err(fail, "Failed to build Device with UDN %s" % (udn, ))
 
-    def _device_rejected(self, event):
-        """Handle device reject, mismatch against desired device type."""
-        udn = event.get_udn()
-        adc = self._devices.pop(udn)
-        adc.stop()
-        log.msg(2, 'Adding device %s to ignore list, because %s' %
-                (adc.get_device(), event.get_reason()))
-        self._ignored.append(udn)
-
-    def _device_finished(self, event):
+    def _device_finished(self, device, umessage):
         """Handle completion of device building."""
-        device = event.get_device()
+        mgr = DeviceManager(device, self._device_expired)
+        self._devices[device.UDN] = mgr
 
         # Start the device container timer
-        adc = self._devices[event.get_udn()]
-        adc.add_expire_listener(self._device_expired)
-        adc.touch(adc.get_headers())
+        mgr.touch(umessage)
 
         # Publish the device
         self.on_device_found(device)
@@ -304,3 +229,74 @@ class UpnpService(UpnpBase, Service):
     def stopService(self):
         self.stop()
         Service.stopService(self)
+
+
+class DeviceManager(object):
+
+    def __init__(self, device, expire_func):
+        self.device = device
+        self._expire_timer = None
+        self._device_expired = expire_func
+
+    def touch(self, umessage):
+        """Start or reset the device timer based on UPnP HTTP headers.
+
+        If the expire timer hasn't been started before, it will be when this
+        method is called. Otherwise, the timer will be reset. The timer time
+        is taken from the "max-age" directive of the "CACHE-CONTROL" header.
+
+        Arguments:
+        headers -- dictionary of UPnP HTTP headers
+
+        """
+        seconds = get_max_age(umessage.headers) # TODO
+        if seconds:
+            udn = umessage.get_udn()
+            timer = self._expire_timer
+            if timer and timer.active():
+                timer.reset(seconds)
+            else:
+                newtimer = reactor.callLater(seconds, self._device_expired,
+                                             udn)
+                self._expire_timer = newtimer
+
+    def stop(self):
+        """Stop the device timer if it is running."""
+        if self._expire_timer and self._expire_timer.active():
+            self._expire_timer.cancel()
+
+
+class UpnpMessage(object):
+
+    def __init__(self, data):
+        req_line, headers = data.split('\r\n', 1)
+
+        # HTTPMessage has no proper __repr__, so let's use the dictionary
+        dict = HTTPMessage(StringIO(headers)).dict.copy()
+
+        # all header names in the UPnP specs are uppercase
+        self.headers = {k.upper(): v for k, v in dict.items()}
+
+        method = req_line.split(' ')[0]
+
+        self._notify = method == 'NOTIFY'
+
+        # Unique Service Name => Unique Device Name + Type
+        usn = self.headers.get('USN')
+        self._udn, self._type = split_usn(usn) if usn else (None, None)
+
+    def get_udn(self):
+        return self._udn
+
+    def get_type(self):
+        return self._type
+
+    def is_notification(self):
+        return self._notify
+
+    def get_notification_sub_type(self):
+        return self.headers['NTS']
+
+    def get_location(self):
+        return self.headers['LOCATION']
+
