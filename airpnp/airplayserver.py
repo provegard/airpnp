@@ -29,6 +29,7 @@
 import aplog as log
 from twisted.web import resource, server
 from twisted.internet import reactor
+from http import HTTPSite
 
 __all__ = [
     'BaseResource',
@@ -58,8 +59,5 @@ class BaseResource(resource.Resource):
         return ret
 
 
-class AirPlayServer(server.Site):
-
-    def buildProtocol(self, addr):
-        channel = server.Site.buildProtocol(self, addr)
-        return channel
+class AirPlayServer(HTTPSite):
+    pass

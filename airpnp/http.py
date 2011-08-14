@@ -33,6 +33,7 @@ from twisted.application.internet import TCPServer
 
 __all__ = [
     'HTTPServer',
+    'HTTPSite',
     'DynamicResourceServer',
     'get_page',
 ]
@@ -54,6 +55,12 @@ def get_page(url, *args, **kwargs):
 class HTTPSite(server.Site):
     """A Site subclass that sets the noisiness of the created channels based on
     the current log level."""
+
+    def __init__(self, *args):
+        server.Site.__init__(self, *args)
+        if config.loglevel() < 3:
+            # suppress request logging
+            self.log = lambda *args: None
 
     def buildProtocol(self, addr):
         channel = server.Site.buildProtocol(self, addr)
