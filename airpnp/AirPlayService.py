@@ -27,7 +27,7 @@ import aplog as log
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
 from config import config
-from airplayserver import BaseResource, AirPlayServer
+from airplayserver import BaseResource, AirPlayServer, AirPlayOperationsBase
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
@@ -216,7 +216,7 @@ class SlideshowFeaturesResource(BaseResource):
         return content
 
 
-class AirPlayOperations(object):
+class AirPlayOperations(AirPlayOperationsBase):
 
     def get_scrub(self):
         return 0, 0

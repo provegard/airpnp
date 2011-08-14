@@ -30,6 +30,7 @@ import aplog as log
 import uuid
 from device import CommandError
 from device_discovery import DeviceDiscoveryService
+from airplayserver import SessionRejectedError
 from AirPlayService import AirPlayService, AirPlayOperations
 from util import hms_to_sec, sec_to_hms
 from config import config
@@ -112,6 +113,7 @@ class AVControlPoint(AirPlayOperations):
     _client = None
     _instance_id = None
     _photo = None
+    sid = None
 
     def __init__(self, device, photoweb):
         self._connmgr = device.get_service_by_id(CN_MGR_SERVICE)
@@ -119,19 +121,13 @@ class AVControlPoint(AirPlayOperations):
         self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
         self._photoweb = photoweb
 
-    @property
-    def client(self):
-        return self._client
-
-    @client.setter
-    def client(self, value):
-        if not value is None and not self._client is None \
-           and value.host != self._client.host:
-            log.msg(1, "Rejecting client %r since device is busy (current "
-                    "client = %r)" % (value, self._client))
-            raise ValueError("Device is busy")
-        self._client = value
-        if value is None:
+    def set_session_id(self, sid):
+        if sid and self.sid and self.sid != sid:
+            log.msg(1, "Rejecting session %s since session %s is active"
+                    % (sid, self.sid))
+            raise SessionRejectedError("Another session is active")
+        self.sid = sid
+        if sid is None:
             self._release_instance_id(self._instance_id)
         else:
             self._instance_id = self._allocate_instance_id()
@@ -222,8 +218,8 @@ class AVControlPoint(AirPlayOperations):
                 self._photoweb.unpublish(self._photo)
                 self._photo = None
 
-            # clear the client, so that we can accept another
-            self.client = None
+            # clear the sesion ID, so that we can accept another
+            self.set_session_id(None)
 
     def _try_stop(self, retries):
         try:

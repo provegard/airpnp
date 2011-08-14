@@ -34,28 +34,46 @@ from http import HTTPSite
 __all__ = [
     'BaseResource',
     'AirPlayServer',
+    'SessionRejectedError',
+    'AirPlayOperationsBase',
 ]
+
+
+class SessionRejectedError(Exception):
+    pass
+
+
+class AirPlayOperationsBase(object):
+
+    def set_session_id(self, sid):
+        """Set the current session ID.
+
+        Set the current session ID, as repored by the AirPlay client. If another
+        session is already ongoing, raise a SessionRejectedError.
+
+        """
 
 
 class BaseResource(resource.Resource):
 
     def __init__(self, ops):
         resource.Resource.__init__(self)
+        if not isinstance(ops, AirPlayOperationsBase):
+            raise ValueError("Operations instance must be of type "
+                             "AirPlayOperationsBase.")
         self.ops = ops
 
     def render(self, request):
+        sid = request.getHeader("x-apple-session-id")
+        ret = ""
         try:
-            self.ops.client = request.client
-        except:
-            request.setResponseCode(503)
-            return ""
- 
-        try:
+            self.ops.set_session_id(sid)
             ret = resource.Resource.render(self, request)
+        except SessionRejectedError:
+            request.setResponseCode(503)
         except:
             log.err(None, "Failed to process AirPlay request")
             request.setResponseCode(501)
-            ret = ""
         return ret
 
 
