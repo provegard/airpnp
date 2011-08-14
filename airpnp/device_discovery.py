@@ -185,8 +185,6 @@ class DeviceDiscoveryService(MultiService):
         # or m-search result.
         if not fail.check(defer.CancelledError):
             del self._builders[udn]
-            #mgr = self._devices.pop(udn)
-            #mgr.stop()
             if fail.check(DeviceRejectedError):
                 device = fail.value.device
                 log.msg(2, 'Adding device %s to ignore list, because %s' %
@@ -209,6 +207,7 @@ class DeviceDiscoveryService(MultiService):
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
         log.msg(3, 'Sending out M-SEARCH discovery requests')
+        # send two requests to counter UDP unreliability
         reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
         reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
 

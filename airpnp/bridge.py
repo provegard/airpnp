@@ -286,6 +286,8 @@ class AVControlPoint(AirPlayOperations):
 
         # start loading of media, also set the URI to indicate that
         # we're playing
+        # Note: if we already have a photo, this would be a good time to call
+        # SetNextAVTransportURI, but I have no media renderer that supports it.
         self._avtransport.SetAVTransportURI(InstanceID=self._instance_id,
                                             CurrentURI=uri,
                                             CurrentURIMetaData='')
