@@ -258,7 +258,7 @@ class AirPlayService(MultiService):
         self.model = "AppleTV2,1"
 
         # create TCP server
-        TCPServer(port, AirPlayServer(self.create_site()), 5).setServiceParent(self)
+        TCPServer(port, AirPlayServer(self.create_site()), 100).setServiceParent(self)
 
         # create avahi service
         if (name is None):

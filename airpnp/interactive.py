@@ -37,7 +37,7 @@ class InteractiveWeb(TCPServer):
         self.root = self.create_site()
         self.port = port
 
-        TCPServer.__init__(self, port, server.Site(self.root), 5)
+        TCPServer.__init__(self, port, server.Site(self.root), 100)
 
     def add_device(self, device):
         devroot = self.create_device_site(device)
