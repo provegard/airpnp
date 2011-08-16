@@ -128,9 +128,9 @@ class AVControlPoint(AirPlayOperations):
             raise SessionRejectedError("Another session is active")
         self.sid = sid
         if sid is None:
-            self._release_instance_id(self._instance_id)
+            self.release_instance_id(self._instance_id)
         else:
-            self._instance_id = self._allocate_instance_id()
+            self._instance_id = self.allocate_instance_id()
 
     def get_scrub(self):
         posinfo = self._avtransport.GetPositionInfo(
@@ -305,13 +305,13 @@ class AVControlPoint(AirPlayOperations):
             if targetoffset > position:  # TODO: necessary?
                 self.set_scrub(targetoffset)
 
-    def _allocate_instance_id(self):
+    def allocate_instance_id(self):
         iid = '0'
         if hasattr(self._connmgr, 'PrepareForConnection'):
             self.msg(2, 'ConnectionManager::PrepareForConnection not implemented!')
         return iid
 
-    def _release_instance_id(self, instance_id):
+    def release_instance_id(self, instance_id):
         if hasattr(self._connmgr, 'ConnectionComplete'):
             self.msg(2, 'ConnectionManager::ConnectionComplete not implemented!')
 
