@@ -109,7 +109,6 @@ class AVControlPoint(AirPlayOperations):
 
     _uri = None
     _pre_scrub = None
-    _position_pct = None
     _client = None
     _instance_id = None
     _photo = None
@@ -140,9 +139,6 @@ class AVControlPoint(AirPlayOperations):
             position = hms_to_sec(posinfo['RelTime'])
             self.msg(2, 'Scrub requested, returning duration %f, position %f' %
                      (duration, position))
-
-            if not self._position_pct is None:
-                self._try_seek_pct(duration, position)
 
             return duration, position
         else:
@@ -198,10 +194,6 @@ class AVControlPoint(AirPlayOperations):
 
             # clear it because we have used it
             self._pre_scrub = None
-        else:
-            # no saved scrub position, so save the percentage position,
-            # which we can use to seek once we have a duration
-            self._position_pct = float(position)
 
     def stop(self, info):
         if self._uri is not None:
@@ -252,10 +244,6 @@ class AVControlPoint(AirPlayOperations):
                 else:
                     self.msg(2, 'Rate ignored since device state is %s' %
                              (state, ))
-
-                if not self._position_pct is None:
-                    duration, pos = self.get_scrub()
-                    self._try_seek_pct(duration, pos)
             else:
                 self.msg(1, 'Pausing playback')
                 self._avtransport.Pause(InstanceID=self._instance_id)
@@ -291,19 +279,6 @@ class AVControlPoint(AirPlayOperations):
 
         # show the photo (no-op if we're already playing)
         self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
-
-    def _try_seek_pct(self, duration, position):
-        if duration > 0:
-            self.msg(2, ('Has duration %f, can calculate position from ' +
-                         'percentage %f') % (duration, self._position_pct))
-            targetoffset = duration * self._position_pct
-
-            # clear the position percentage now that we've used it
-            self._position_pct = None
-
-            # do the actual seeking
-            if targetoffset > position:  # TODO: necessary?
-                self.set_scrub(targetoffset)
 
     def allocate_instance_id(self):
         iid = '0'
