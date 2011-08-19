@@ -132,9 +132,9 @@ class AVControlPoint(AirPlayOperations):
             self._instance_id = self.allocate_instance_id()
 
     def get_scrub(self):
-        posinfo = self._avtransport.GetPositionInfo(
-            InstanceID=self._instance_id)
-        if not self._uri is None:
+        if self._uri:
+            posinfo = self._avtransport.GetPositionInfo(
+                InstanceID=self._instance_id)
             duration = hms_to_sec(posinfo['TrackDuration'])
             position = hms_to_sec(posinfo['RelTime'])
             self.msg(2, 'Scrub requested, returning duration %f, position %f' %
@@ -145,7 +145,7 @@ class AVControlPoint(AirPlayOperations):
             return 0.0, 0.0
 
     def is_playing(self):
-        if self._uri is not None:
+        if self._uri:
             state = self._get_current_transport_state()
             playing = state == 'PLAYING'
             self.msg(2, 'Play status requested, returning %s' % (playing, ))
@@ -159,7 +159,7 @@ class AVControlPoint(AirPlayOperations):
         return stateinfo['CurrentTransportState']
 
     def set_scrub(self, position):
-        if self._uri is not None:
+        if self._uri:
             hms = sec_to_hms(position)
             self.msg(2, 'Scrubbing/seeking to position %f' % (position, ))
             self._avtransport.Seek(InstanceID=self._instance_id,
@@ -177,23 +177,29 @@ class AVControlPoint(AirPlayOperations):
         else:
             self.msg(1, 'Starting playback of %s' % (location, ))
 
-        # start loading of media, also set the URI to indicate that
-        # we're playing
+        # stop first, to make sure the state is STOPPED
+        self._try_stop(0)
+
+        # start loading of media, state should still be STOPPED
         self._avtransport.SetAVTransportURI(InstanceID=self._instance_id,
                                             CurrentURI=location,
                                             CurrentURIMetaData='')
+
+        # indicate that we're playing
+        # TODO: move this later?
         self._uri = location
 
-        # start playing also
-        self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
-
         # if we have a saved scrub position, seek now
+        # according to the UPnP spec, seeking is allowed in the STOPPED state
         if not self._pre_scrub is None:
             self.msg(2, 'Seeking based on saved scrub position')
             self.set_scrub(self._pre_scrub)
 
             # clear it because we have used it
             self._pre_scrub = None
+
+        # finally, start playing
+        self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
 
     def stop(self, info):
         if self._uri is not None:
@@ -234,8 +240,8 @@ class AVControlPoint(AirPlayOperations):
         pass
 
     def rate(self, speed):
-        if self._uri is not None:
-            if (int(float(speed)) >= 1):
+        if self._uri:
+            if int(float(speed)) >= 1:
                 state = self._get_current_transport_state()
                 if not state == 'PLAYING' and not state == 'TRANSITIONING':
                     self.msg(1, 'Resuming playback')
@@ -254,8 +260,8 @@ class AVControlPoint(AirPlayOperations):
         # create a random name for the photo
         name = str(uuid.uuid4()) + ext
 
-        # remote any previous photo
-        if not self._photo is None:
+        # remove any previous photo
+        if self._photo:
             self._photoweb.unpublish(self._photo)
 
         # publish the new photo
