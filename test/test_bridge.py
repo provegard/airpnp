@@ -75,7 +75,7 @@ class TestAVControlPoint(unittest.TestCase):
 
         self.avtransport.Seek.assert_called_once_with(InstanceID="0",
                                                       Unit="REL_TIME",
-                                                      Target="0:00:05")
+                                                      Target="0:00:05.000")
 
     def test_set_scrub_seeks_with_uri(self):
         self.avcp.set_session_id("123")
@@ -84,5 +84,5 @@ class TestAVControlPoint(unittest.TestCase):
         self.avcp.set_scrub(5.0)
         self.avtransport.Seek.assert_called_with(InstanceID="0",
                                                  Unit="REL_TIME",
-                                                 Target="0:00:05")
+                                                 Target="0:00:05.000")
 

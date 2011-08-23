@@ -33,8 +33,6 @@ from upnp import SoapMessage, SoapError
 
 __all__ = [
     'send_soap_message',
-    'hms_to_sec',
-    'sec_to_hms',
     'split_usn',
     'get_max_age',
 ]
@@ -104,82 +102,6 @@ def send_soap_message(url, msg, mpost=False):
         raise err
 
     return response
-
-
-def hms_to_sec(hms):
-    """
-    Convert a HMS time string to seconds.
-
-    The supported HMS time string formats are:
-        
-    H+:MM:SS[.F+] or H+:MM:SS[.F0/F1]
-
-    where:
-        * H+ means one or more digits to indicate elapsed hours
-        * MM means exactly 2 digits to indicate minutes (00 to 59)
-        * SS means exactly 2 digits to indicate seconds (00 to 59)
-        * [.F+] means optionally a dot followed by one or more digits to
-          indicate fractions of seconds
-        * [.F0/F1] means optionally a dot followed by a fraction, with F0
-          and F1 at least one digit long, and F0 < F1
-
-    The string may be preceded by an optional + or - sign, and the decimal
-    point itself may be omitted if there are no fractional second digits.
-
-    A ValueError is raised if the input string does not adhere to the
-    requirements stated above.
-
-    """
-    hours, minutes, seconds = hms.split(':')
-    if len(minutes) != 2 or len(seconds.split('.')[0]) != 2:
-        raise ValueError('Minute and second parts must have two digits each.')
-    hours = int(hours)
-    minutes = int(minutes)
-    if minutes < 0 or minutes > 59:
-        raise ValueError('Minute out of range, must be 00-59.')
-    if seconds.find('/') > 0:
-        whole, frac = seconds.split('.')
-        sf0, sf1 = frac.split('/')
-        sf0 = int(sf0)
-        sf1 = int(sf1)
-        if sf0 >= sf1:
-            raise ValueError(
-                'Nominator must be less than denominator in exact fraction.')
-        seconds = int(whole) + float(sf0) / sf1
-    else:
-        seconds = float(seconds)
-    if seconds < 0 or seconds >= 60.0:
-        raise ValueError('Second out of range, must be 00-60 (exclusive).')
-    sec = 3600.0 * abs(hours) + 60.0 * minutes + seconds
-    return sec if hours >= 0 else -sec
-
-
-def sec_to_hms(sec):
-    """
-    Convert a number of seconds to an HMS time string.
-    
-    The resulting string has the form:
-
-    H+:MM:SS[.F+]
-
-    This function is the inverse of the hms_to_sec function. If the
-    number of seconds is negative, the resulting string will have a
-    preceding - sign. It will never have a preceding + sign, nor will
-    the fraction be expressed as an integer division of the form F0/F1.
-
-    """
-    sgn = -1 if sec < 0 else 1
-    sec = abs(sec)
-    frac = sec - int(sec)
-    sec = int(sec)
-    seconds = sec % 60
-    mins = (sec - seconds) / 60
-    minutes = mins % 60
-    hours = (mins - minutes) / 60
-    hms = '%d:%02d:%02d' % (hours, minutes, seconds)
-    if frac > 0:
-        hms = '%s%s' % (hms, str(frac)[1:])
-    return '-%s' % (hms, ) if sgn < 0 else hms
 
 
 def split_usn(usn):

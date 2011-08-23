@@ -32,7 +32,7 @@ from device import CommandError
 from device_discovery import DeviceDiscoveryService
 from airplayserver import SessionRejectedError
 from AirPlayService import AirPlayService, AirPlayOperations
-from util import hms_to_sec, sec_to_hms
+from upnp import parse_duration, to_duration
 from config import config
 from interactive import InteractiveWeb
 from http import DynamicResourceServer
@@ -135,8 +135,8 @@ class AVControlPoint(AirPlayOperations):
         if self._uri:
             posinfo = self._avtransport.GetPositionInfo(
                 InstanceID=self._instance_id)
-            duration = hms_to_sec(posinfo['TrackDuration'])
-            position = hms_to_sec(posinfo['RelTime'])
+            duration = parse_duration(posinfo['TrackDuration'])
+            position = parse_duration(posinfo['RelTime'])
             self.msg(2, 'Scrub requested, returning duration %f, position %f' %
                      (duration, position))
 
@@ -160,7 +160,7 @@ class AVControlPoint(AirPlayOperations):
 
     def set_scrub(self, position):
         if self._uri:
-            hms = sec_to_hms(position)
+            hms = to_duration(position)
             self.msg(2, 'Scrubbing/seeking to position %f' % (position, ))
             self._avtransport.Seek(InstanceID=self._instance_id,
                                    Unit='REL_TIME', Target=hms)

@@ -3,6 +3,8 @@ import urllib2
 from airpnp.util import *
 from airpnp.upnp import SoapMessage, SoapError
 from cStringIO import StringIO
+from airpnp.upnp import parse_duration as hms_to_sec
+from airpnp.upnp import to_duration as sec_to_hms
 
 
 class RaisingOpener:
@@ -220,23 +222,23 @@ class TestSecToHms(unittest.TestCase):
 
     def test_seconds_only_without_fraction(self):
         hms = sec_to_hms(5)
-        self.assertEqual(hms, '0:00:05')
+        self.assertEqual(hms, '0:00:05.000')
 
     def test_seconds_with_fraction(self):
         hms = sec_to_hms(5.5)
-        self.assertEqual(hms, '0:00:05.5')
+        self.assertEqual(hms, '0:00:05.500')
 
     def test_minute_conversion(self):
         hms = sec_to_hms(65)
-        self.assertEqual(hms, '0:01:05')
+        self.assertEqual(hms, '0:01:05.000')
 
     def test_hour_conversion(self):
         hms = sec_to_hms(3600)
-        self.assertEqual(hms, '1:00:00')
+        self.assertEqual(hms, '1:00:00.000')
 
     def test_negative_seconds_conversion(self):
         hms = sec_to_hms(-3661.0)
-        self.assertEqual(hms, '-1:01:01')
+        self.assertEqual(hms, '-1:01:01.000')
 
 
 class TestSplitUsn(unittest.TestCase):
