@@ -26,12 +26,11 @@ import aplog as log
 
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
-from config import config
 from airplayserver import BaseResource, AirPlayServer, AirPlayOperationsBase
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
-from twisted.web import server, resource, error
+from twisted.web import error
 from httplib import HTTPMessage
 from cStringIO import StringIO
 

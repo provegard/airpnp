@@ -28,7 +28,6 @@
 
 from twisted.web import server, resource
 from twisted.application.internet import TCPServer
-from twisted.application.service import MultiService
 
 
 class InteractiveWeb(TCPServer):

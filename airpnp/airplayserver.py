@@ -27,8 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import aplog as log
-from twisted.web import resource, server
-from twisted.internet import reactor
+from twisted.web import resource
 from http import HTTPSite
 
 __all__ = [
