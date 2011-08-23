@@ -88,7 +88,7 @@ class DeviceBuilder(object):
         """Get the device from a list of tuples of (success, result), where the
         result is a Service object.
         """
-        return result[0][1]._device # TODO
+        return result[0][1].device
 
     def _init_services(self, device):
         def start_init_service(service):

@@ -58,7 +58,7 @@ class InteractiveWeb(TCPServer):
             service = device.get_service_by_id(id)
             oplist = ListChildrenResource("Operations")
             root.putChild(id, oplist)
-            for op in service.operations:
+            for op in service.actions:
                 action = getattr(service, op)
                 show = ShowOperationResource(device, service, action)
                 oplist.putChild(op, show)

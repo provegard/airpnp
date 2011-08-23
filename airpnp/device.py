@@ -26,7 +26,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import new
 from upnp import SoapMessage, SoapError, ns
 from urlparse import urljoin
 
@@ -181,8 +180,8 @@ class Service(object):
         self._base_url = base_url
         self._resolve_urls([attr for attr in SERVICE_ATTRS if
                             attr.endswith('URL')], base_url)
-        self._device = device
-        self.operations = []
+        self.device = device
+        self.actions = {}
 
     def initialize(self, scpd_element, soap_sender):
         """Initialize this service object with service actions.
@@ -195,15 +194,13 @@ class Service(object):
                         device, the control URL and the SoapMessage object
 
         """
-        #TODO: better name
         self._add_actions(scpd_element, soap_sender)
 
     def _add_actions(self, element, soap_sender):
         for action in find_elements(element, ns.service, 'actionList/action'):
-            act = Action(self._device, action, soap_sender)
-            method = new.instancemethod(act, self, self.__class__)
-            setattr(self, act.name, method)
-            self.operations.append(act.name)
+            act = Action(self, action, soap_sender)
+            self.actions[act.name] = act
+            setattr(self, act.name, act)
 
     def _resolve_urls(self, attrs, base_url):
         for attr in attrs:
@@ -214,43 +211,34 @@ class Service(object):
 
 class Action(object):
 
-    def __init__(self, device, element, soap_sender):
+    def __init__(self, service, element, soap_sender):
         add_xml_attrs(self, element, ns.service, ['name'])
         self.arguments = []
         self._add_arguments(element)
         self._soap_sender = soap_sender
-        self._device = device
+        self.service = service
+        self.inargs = [arg for arg in self.arguments if arg.direction == 'in']
+        self.outargs = [arg for arg in self.arguments if arg.direction == 'out']
 
     def _add_arguments(self, element):
         for argument in find_elements(element, ns.service,
                                       'argumentList/argument'):
             self.arguments.append(Argument(argument))
 
-    def __call__(self, service, **kwargs):
-        msg = SoapMessage(service.serviceType, self.name)
-
-        # arrange the arguments by direction
-        inargs = [arg for arg in self.arguments if arg.direction == 'in']
-        outargs = [arg for arg in self.arguments if arg.direction == 'out']
+    def __call__(self, *args, **kwargs):
+        msg = SoapMessage(self.service.serviceType, self.name)
 
         # update the message with input argument values
-        for arg in inargs:
+        for arg in self.inargs:
             val = kwargs.get(arg.name)
             if val is None:
                 raise KeyError('Missing IN argument: %s' % (arg.name, ))
             msg.set_arg(arg.name, val)
 
         # send the message
-        response = self._soap_sender(self._device, service.controlURL, msg)
-        if isinstance(response, SoapError):
-            raise CommandError('Command error: %s/%s' % (response.code,
-                                                         response.desc),
-                               response)
-        # populate the output dictionary
-        ret = {}
-        for arg in outargs:
-            ret[arg.name] = response.get_arg(arg.name)
-        return ret
+        result = self._soap_sender(self.service.device, self.service.controlURL, msg)
+
+        return decode_soap(result, self.outargs)
 
 
 class Argument(object):
@@ -258,3 +246,13 @@ class Argument(object):
     def __init__(self, element):
         add_xml_attrs(self, element, ns.service, ['name', 'direction',
                                                   'relatedStateVariable'])
+
+def decode_soap(msg, outargs):
+    if isinstance(msg, SoapError):
+        raise CommandError('Command error: %s/%s' % (msg.code, msg.desc),
+                           msg)
+
+    ret = {}
+    for arg in outargs:
+        ret[arg.name] = msg.get_arg(arg.name)
+    return ret
