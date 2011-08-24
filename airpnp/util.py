@@ -30,9 +30,11 @@ import urllib2
 import re
 import aplog as log
 from upnp import SoapMessage, SoapError
+from cStringIO import StringIO
 
 __all__ = [
     'send_soap_message',
+    'send_soap_message_deferred',
     'split_usn',
     'get_max_age',
 ]
@@ -102,6 +104,55 @@ def send_soap_message(url, msg, mpost=False):
         raise err
 
     return response
+
+
+def send_soap_message_deferred(url, msg, mpost=False):
+    """
+    Send a SOAP message to the given URL.
+    
+    The HTTP headers mandated by the UPnP specification are added. Also, if
+    posting fails with a 405 error, another attempt is made with slightly
+    different headers and method set to M-POST.
+
+    Return a Deferred, whose callback will be called with a SoapMessage or a
+    SoapError, depending on the outcome.
+
+    """
+    def handle_error(fail):
+        if fail.check(error.Error):
+            err = fail.value
+            status = int(err.status)
+            if not mpost and status == http.NOT_ALLOWED:
+                # new attempt
+                return send_soap_2(url, msg, mpost=True)
+            elif status == http.INTERNAL_SERVER_ERROR:
+                # return to the callback chain
+                return SoapError.parse(err.response)
+        log.err(fail, "Failed to send SOAP message to %s" % (url, ))
+        fail.raiseException()
+
+    # setup request headers
+    headers = {}
+    headers['Content-Type'] = 'text/xml; charset="utf-8"'
+    if mpost:
+        headers['Man'] = '"http://schemas.xmlsoap.org/soap/envelope/"; ns=01'
+        headers['01-Soapaction'] = msg.get_header()
+    else:
+        headers['Soapaction'] = msg.get_header()
+
+    # prepare the post data
+    data = msg.tostring().encode("utf-8")
+
+    # select method
+    method = 'POST' if not mpost else 'M-POST'
+
+    # initiate the request and add initial handlers
+    d = client.getPage(url, method=method, headers=headers, postdata=data,
+                       agent='OS/1.0 UPnP/1.0 airpnp/1.0')
+    d.addCallback(StringIO)
+    d.addCallback(SoapMessage.parse)
+    d.addErrback(handle_error)
+    return d
 
 
 def split_usn(usn):
