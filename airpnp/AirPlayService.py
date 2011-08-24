@@ -26,7 +26,7 @@ import aplog as log
 
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
-from airplayserver import BaseResource, AirPlayServer, AirPlayOperationsBase
+from airplayserver import BaseResource, AirPlaySite, IAirPlayServer
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
@@ -36,7 +36,6 @@ from cStringIO import StringIO
 
 __all__ = [
     "AirPlayService",
-    "AirPlayOperations",
 ]
 
 CT_BINARY_PLIST = 'application/x-apple-binary-plist'
@@ -83,7 +82,7 @@ class PlaybackInfoResource(BaseResource):
 </array>\
 </dict>\
 </plist>'
-        d, p = self.ops.get_scrub()
+        d, p = self.apserver.get_scrub()
         if (d+p == 0):
             playbackBufferEmpty = 'true'
             readyToPlay = 'false'
@@ -91,7 +90,7 @@ class PlaybackInfoResource(BaseResource):
             playbackBufferEmpty = 'false'
             readyToPlay = 'true'
 
-        content = content % (float(d), float(p), int(self.ops.is_playing()), playbackBufferEmpty, readyToPlay, float(d), float(d))
+        content = content % (float(d), float(p), int(self.apserver.is_playing()), playbackBufferEmpty, readyToPlay, float(d), float(d))
         request.setHeader("Content-Type", "text/x-apple-plist+xml")
         return content
 
@@ -105,7 +104,7 @@ class PlayResource(BaseResource):
         # position may not be given for streaming media
         position = parsedbody['Start-Position'] if \
                 parsedbody.has_key('Start-Position') else 0.0
-        self.ops.play(parsedbody['Content-Location'], float(position))
+        self.apserver.play(parsedbody['Content-Location'], float(position))
         return ""
 
     def parse_body(self, headers, body):
@@ -120,28 +119,28 @@ class PlayResource(BaseResource):
 class StopResource(BaseResource):
 
     def render_POST(self, request):
-        self.ops.stop(request.getAllHeaders())
+        self.apserver.stop()
         return ""
 
 
 class ScrubResource(BaseResource):
 
     def render_GET(self, request):
-        d, p = self.ops.get_scrub()
+        d, p = self.apserver.get_scrub()
         content = "duration: " + str(float(d))
         content += "\nposition: " + str(float(p))
         return content
 
     def render_POST(self, request):
         position = request.args['position'][0]
-        self.ops.set_scrub(float(position))
+        self.apserver.set_scrub(float(position))
         return ""
 
 
 class ReverseResource(BaseResource):
 
     def render_POST(self, request):
-        self.ops.reverse(request.getAllHeaders())
+        self.apserver.reverse(None) #TODO
         request.setResponseCode(101)
         request.setHeader("Upgrade", "PTTH/1.0")
         request.setHeader("Connection", "Upgrade")
@@ -152,14 +151,14 @@ class RateResource(BaseResource):
 
     def render_POST(self, request):
         value = request.args['value'][0]
-        self.ops.rate(float(value))
+        self.apserver.rate(float(value))
         return ""
 
 
 class PhotoResource(BaseResource):
 
     def render_PUT(self, request):
-        self.ops.photo(request.content.read(), request.getHeader('X-Apple-Transition'))
+        self.apserver.photo(request.content.read(), request.getHeader('X-Apple-Transition'))
         return ""
 
 
@@ -215,39 +214,12 @@ class SlideshowFeaturesResource(BaseResource):
         return content
 
 
-class AirPlayOperations(AirPlayOperationsBase):
-
-    def get_scrub(self):
-        return 0, 0
-
-    def is_playing(self):
-        return False
-
-    def set_scrub(self, position):
-        pass
-
-    def play(self, location, position):
-        pass
-
-    def stop(self, info):
-        pass
-
-    def reverse(self, info):
-        pass
-
-    def photo(self, data, transition):
-        pass
-
-    def rate(self, speed):
-        pass
-
-
 class AirPlayService(MultiService):
 
-    def __init__(self, ops, name=None, host="0.0.0.0", port=22555):
+    def __init__(self, apserver, name=None, host="0.0.0.0", port=22555):
         MultiService.__init__(self)
 
-        self.ops = ops
+        self.apserver = IAirPlayServer(apserver)
 
         macstr = "%012X" % uuid.getnode()
         self.deviceid = ''.join("%s:" % macstr[i:i+2] for i in range(0, len(macstr), 2))[:-1]
@@ -257,7 +229,7 @@ class AirPlayService(MultiService):
         self.model = "AppleTV2,1"
 
         # create TCP server
-        TCPServer(port, AirPlayServer(self.create_site()), 100).setServiceParent(self)
+        TCPServer(port, self.create_site(), 100).setServiceParent(self)
 
         # create avahi service
         if (name is None):
@@ -272,18 +244,18 @@ class AirPlayService(MultiService):
 
     def create_site(self):
         root = error.NoResource()
-        root.putChild("playback-info", PlaybackInfoResource(self.ops))
-        root.putChild("play", PlayResource(self.ops))
-        root.putChild("stop", StopResource(self.ops))
-        root.putChild("scrub", ScrubResource(self.ops))
-        root.putChild("reverse", ReverseResource(self.ops))
-        root.putChild("rate", RateResource(self.ops))
-        root.putChild("photo", PhotoResource(self.ops))
-        root.putChild("slideshow-features", SlideshowFeaturesResource(self.ops))
-        root.putChild("server-info", ServerInfoResource(self.ops, self.deviceid,
+        root.putChild("playback-info", PlaybackInfoResource(self.apserver))
+        root.putChild("play", PlayResource(self.apserver))
+        root.putChild("stop", StopResource(self.apserver))
+        root.putChild("scrub", ScrubResource(self.apserver))
+        root.putChild("reverse", ReverseResource(self.apserver))
+        root.putChild("rate", RateResource(self.apserver))
+        root.putChild("photo", PhotoResource(self.apserver))
+        root.putChild("slideshow-features", SlideshowFeaturesResource(self.apserver))
+        root.putChild("server-info", ServerInfoResource(self.apserver, self.deviceid,
                                                         self.features,
                                                         self.model))
-        return root
+        return AirPlaySite(root)
 
     def startService(self):
         MultiService.startService(self)

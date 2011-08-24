@@ -3,19 +3,28 @@ import httplib
 import plistlib
 import os.path
 from mock import Mock
-from airpnp.AirPlayService import AirPlayService, AirPlayOperations
+from airpnp.AirPlayService import AirPlayService
+from airpnp.airplayserver import IAirPlayServer
 from cStringIO import StringIO
 from twisted.web import http, server
 from twisted.test.proto_helpers import StringTransport
+from zope.interface import implements
+
+
+class IAirPlayServerMock(Mock):
+    implements(IAirPlayServer)
+
+    def __init__(self, *args, **kwargs):
+        Mock.__init__(self, IAirPlayServer.names(), *args, **kwargs)
 
 
 class TestAirPlayProtocol(unittest.TestCase):
 
     def setUp(self):
-        self.ops = Mock(AirPlayOperations)
-        service = AirPlayService(self.ops, "test")
+        self.apserver = IAirPlayServerMock()
+        service = AirPlayService(self.apserver, "test")
         service.deviceid = "01:00:17:44:60:d2"
-        self.ops.features = 0x77
+        self.apserver.features = 0x77
         self.proto = http.HTTPChannel()
         self.proto.requestFactory = server.Request
         self.proto.site = server.Site(service.create_site())
@@ -24,8 +33,8 @@ class TestAirPlayProtocol(unittest.TestCase):
     def test_playback_info_method_calls(self):
         self._send_playback_info((0.0, 0.0), False)
 
-        self.assertTrue(self.ops.get_scrub.called)
-        self.assertTrue(self.ops.is_playing.called)
+        self.assertTrue(self.apserver.get_scrub.called)
+        self.assertTrue(self.apserver.is_playing.called)
 
     def test_playback_info_response_content_type(self):
         self._send_playback_info((0.0, 0.0), False)
@@ -66,17 +75,17 @@ class TestAirPlayProtocol(unittest.TestCase):
         data = "POST /stop HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
-        self.assertTrue(self.ops.stop.called)
+        self.assertTrue(self.apserver.stop.called)
         
     def test_get_scrub_method_calls(self):
-        self.ops.get_scrub.return_value = 0.0, 0.0
+        self.apserver.get_scrub.return_value = 0.0, 0.0
         data = "GET /scrub HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
-        self.assertTrue(self.ops.get_scrub.called)
+        self.assertTrue(self.apserver.get_scrub.called)
 
     def test_get_scrub_response_data(self):
-        self.ops.get_scrub.return_value = 0.0, 0.0
+        self.apserver.get_scrub.return_value = 0.0, 0.0
         data = "GET /scrub HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
@@ -88,13 +97,13 @@ class TestAirPlayProtocol(unittest.TestCase):
         data = "POST /scrub?position=1.0 HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
-        self.ops.set_scrub.assert_called_with(1.0)
+        self.apserver.set_scrub.assert_called_with(1.0)
 
     def test_rate_method_calls(self):
         data = "POST /rate?value=1.0 HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
-        self.ops.rate.assert_called_with(1.0)
+        self.apserver.rate.assert_called_with(1.0)
 
     def test_server_info_content_type(self):
         data = "GET /server-info HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
@@ -121,7 +130,7 @@ class TestAirPlayProtocol(unittest.TestCase):
                 "Content-Location: http://localhost/test"
         self._send_data(data)
 
-        self.ops.play.assert_called_with("http://localhost/test", 1.0)
+        self.apserver.play.assert_called_with("http://localhost/test", 1.0)
 
     def test_play_without_position_method_calls(self):
         data = "POST /play HTTP/1.1\r\nHost: www.example.com\r\n" + \
@@ -129,7 +138,7 @@ class TestAirPlayProtocol(unittest.TestCase):
                 "Content-Location: http://localhost/test"
         self._send_data(data)
 
-        self.ops.play.assert_called_with("http://localhost/test", 0.0)
+        self.apserver.play.assert_called_with("http://localhost/test", 0.0)
 
     def test_play_with_binary_plist_method_calls(self):
         fn = os.path.join(os.path.dirname(__file__), "plist/airplay.bin")
@@ -145,14 +154,14 @@ class TestAirPlayProtocol(unittest.TestCase):
         data += bindata
         self._send_data(data)
 
-        self.assertTrue(self.ops.play.called)
-        args = self.ops.play.call_args[1]
+        self.assertTrue(self.apserver.play.called)
+        args = self.apserver.play.call_args[1]
         self.assertTrue(args[0].startswith("http://"))
         self.assertEqual(args[1], 0.0005364880198612809)
 
     def _send_playback_info(self, get_scrub_response, is_playing_response):
-        self.ops.get_scrub.return_value = get_scrub_response
-        self.ops.is_playing.return_value = is_playing_response
+        self.apserver.get_scrub.return_value = get_scrub_response
+        self.apserver.is_playing.return_value = is_playing_response
         data = "GET /playback-info HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 

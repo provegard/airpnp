@@ -30,12 +30,13 @@ import aplog as log
 import uuid
 from device import CommandError
 from device_discovery import DeviceDiscoveryService
-from airplayserver import SessionRejectedError
-from AirPlayService import AirPlayService, AirPlayOperations
+from airplayserver import SessionRejectedError, IAirPlayServer
+from AirPlayService import AirPlayService
 from upnp import parse_duration, to_duration
 from config import config
 from interactive import InteractiveWeb
 from http import DynamicResourceServer
+from zope.interface import implements
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -105,7 +106,9 @@ class BridgeServer(DeviceDiscoveryService):
         return port
 
 
-class AVControlPoint(AirPlayOperations):
+class AVControlPoint(object):
+
+    implements(IAirPlayServer)
 
     _uri = None
     _pre_scrub = None
@@ -201,8 +204,8 @@ class AVControlPoint(AirPlayOperations):
         # finally, start playing
         self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
 
-    def stop(self, info):
-        if self._uri is not None:
+    def stop(self):
+        if self._uri:
             self.msg(1, 'Stopping playback')
             if not self._try_stop(1):
                 self.msg(1, "Failed to stop playback, device may still be "
@@ -236,7 +239,7 @@ class AVControlPoint(AirPlayOperations):
             else:
                 raise e
 
-    def reverse(self, info):
+    def reverse(self, proxy):
         pass
 
     def rate(self, speed):
