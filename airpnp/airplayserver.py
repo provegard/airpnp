@@ -28,6 +28,7 @@
 
 import aplog as log
 from twisted.web import resource, server
+from twisted.internet import defer
 from http import HTTPSite
 from zope.interface import Interface
 
@@ -106,12 +107,45 @@ class BaseResource(resource.Resource):
         try:
             self.apserver.set_session_id(sid)
             ret = resource.Resource.render(self, request)
+            if isinstance(ret, defer.Deferred):
+                # get a Deferred for request notifications
+                notify = request.notifyFinish()
+                
+                # wait for both Deferreds in parallel, but we want to know as
+                # soon as one of them callbacks or errbacks
+                dl = defer.DeferredList([ret, notify], fireOnOneCallback=True,
+                                        fireOnOneErrback=True)
+                
+                # add our handlers
+                dl.addCallback(self.late_render, request)
+                dl.addErrback(self.late_error, request)
+                
+                # the request is not finished yet
+                ret = server.NOT_DONE_YET
         except SessionRejectedError:
             request.setResponseCode(503)
         except:
-            log.err(None, "Failed to process AirPlay request")
+            log.err(None, "Failed to process AirPlay request.")
             request.setResponseCode(501)
         return ret
+
+    def late_render(self, result, request):
+        # DeferredList callbacks with a two-tuple, the first value of which is
+        # the result from the Deferred that fired. The notifyFinish Deferred
+        # callbacks with value None.when the request is finished normally.
+        data = result[0]
+        if data:
+            request.write(data)
+            request.finish()
+
+    def late_error(self, fail, request):
+        # DeferredList errbacks with a FirstError failure, from which we can
+        # get the real failure.
+        fail = fail.subFailure
+        log.err(fail, "AirPlay request handling failed.")
+        if not request._disconnected:
+            request.setResponseCode(501)
+            request.finish()
 
 
 class AirPlaySite(HTTPSite):
