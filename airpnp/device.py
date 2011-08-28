@@ -228,6 +228,9 @@ class Action(object):
     def __call__(self, *args, **kwargs):
         msg = SoapMessage(self.service.serviceType, self.name)
 
+        # see it there is an async flag, defaults to False
+        async = bool('async' in kwargs and kwargs.pop('async'))
+
         # update the message with input argument values
         for arg in self.inargs:
             val = kwargs.get(arg.name)
@@ -236,9 +239,14 @@ class Action(object):
             msg.set_arg(arg.name, val)
 
         # send the message
-        result = self._soap_sender(self.service.device, self.service.controlURL, msg)
+        result = self._soap_sender(self.service.device, self.service.controlURL, msg, async=async)
 
-        return decode_soap(result, self.outargs)
+        if async:
+            # assume it's a Deferred
+            result.addCallback(decode_soap, self.outargs)
+            return result
+        else:
+            return decode_soap(result, self.outargs)
 
 
 class Argument(object):

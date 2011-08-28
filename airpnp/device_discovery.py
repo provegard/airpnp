@@ -33,7 +33,7 @@ from httplib import HTTPMessage
 from twisted.internet import reactor, defer
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
-from util import send_soap_message, split_usn, get_max_age
+from util import send_soap_message, split_usn, get_max_age, send_soap_message_deferred
 from device_builder import DeviceRejectedError, DeviceBuilder
 
 
@@ -160,18 +160,20 @@ class DeviceDiscoveryService(MultiService):
             log.msg(3, "Starting build of device with UDN = %s" % (udn, ))
             self._builders[udn] = d
 
-    def _send_soap_message(self, device, url, msg):
+    def _send_soap_message(self, device, url, msg, async=False):
         """Send a SOAP message and do error handling."""
         try:
             log.msg(3, 'Sending SOAP message to device %s:\n%s' %
                     (device, msg.tostring()))
-            answer = send_soap_message(url, msg)
-            log.msg(3, 'Got response from device %s:\n%s' % (device,
-                                                             answer.tostring()))
-            if isinstance(answer, SoapError):
-                # log only, don't raise - assume caller handles the error
-                log.msg(1, 'Error response for %s command to device %s: %s/%s' %
-                        (msg.get_name(), device, answer.code, answer.desc))
+            send = send_soap_message_deferred if async else send_soap_message
+            answer = send(url, msg)
+            if not async:
+                log.msg(3, 'Got response from device %s:\n%s' % (device,
+                                                                 answer.tostring()))
+                if isinstance(answer, SoapError):
+                    # log only, don't raise - assume caller handles the error
+                    log.msg(1, 'Error response for %s command to device %s: %s/%s' %
+                            (msg.get_name(), device, answer.code, answer.desc))
             return answer
         except:
             log.err(None, 'Failed to send command "%s" to device %s' %
