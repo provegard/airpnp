@@ -31,6 +31,7 @@ import re
 import aplog as log
 from upnp import SoapMessage, SoapError
 from cStringIO import StringIO
+from twisted.web import client
 
 __all__ = [
     'send_soap_message',
