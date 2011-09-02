@@ -30,7 +30,8 @@ from airplayserver import BaseResource, AirPlaySite, IAirPlayServer
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
-from twisted.web import error
+from twisted.web import error, server
+from twisted.internet import defer
 from httplib import HTTPMessage
 from cStringIO import StringIO
 from plistlib import writePlistToString
@@ -46,7 +47,15 @@ CT_TEXT_PLIST = 'text/x-apple-plist+xml'
 class PlaybackInfoResource(BaseResource):
 
     def render_GET(self, request):
-        d, p = self.apserver.get_scrub()
+        d1 = self.apserver.get_scrub()
+        d2 = self.apserver.is_playing()
+        dl = defer.DeferredList([d1, d2], consumeErrors=True)
+        dl.addCallback(self.late_render_get, request)
+        return dl
+    
+    def late_render_get(self, value, request):
+        d, p = value[0][1]
+        playing = value[1][1]
         if (d+p == 0):
             playbackBufferEmpty = True
             readyToPlay = False
@@ -56,7 +65,7 @@ class PlaybackInfoResource(BaseResource):
 
         info = {"duration": float(d),
                 "position": float(p),
-                "rate": int(self.apserver.is_playing()),
+                "rate": float(playing),
                 "playbackBufferEmpty": playbackBufferEmpty,
                 "playbackBufferFull": False,
                 "playbackLikelyToKeepUp": True,
@@ -102,7 +111,13 @@ class StopResource(BaseResource):
 class ScrubResource(BaseResource):
 
     def render_GET(self, request):
-        d, p = self.apserver.get_scrub()
+        d = self.apserver.get_scrub()
+        d.addCallback(self.late_render_get)
+        return d
+    
+    def late_render_get(self, value):
+        log.msg(2, "late_render_get, value = %r" % (value, ))
+        d, p = value
         content = "duration: " + str(float(d))
         content += "\nposition: " + str(float(p))
         return content

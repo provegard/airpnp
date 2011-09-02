@@ -37,6 +37,7 @@ from config import config
 from interactive import InteractiveWeb
 from http import DynamicResourceServer
 from zope.interface import implements
+from twisted.internet import defer
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -123,6 +124,10 @@ class AVControlPoint(object):
         self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
         self._photoweb = photoweb
 
+    def _log_async(self, value, log_level, msg):
+        self.msg(log_level, msg % (value, ))
+        return value
+
     def set_session_id(self, sid):
         if sid and self.sid and self.sid != sid:
             log.msg(1, "Rejecting session %s since session %s is active"
@@ -135,26 +140,39 @@ class AVControlPoint(object):
             self._instance_id = self.allocate_instance_id()
 
     def get_scrub(self):
-        if self._uri:
-            posinfo = self._avtransport.GetPositionInfo(
-                InstanceID=self._instance_id)
+        def parse_posinfo(posinfo):
             duration = parse_duration(posinfo['TrackDuration'])
             position = parse_duration(posinfo['RelTime'])
-            self.msg(2, 'Scrub requested, returning duration %f, position %f' %
-                     (duration, position))
-
             return duration, position
+            
+        if self._uri:
+            # async call, returns a Deferred
+            d = self._avtransport.GetPositionInfo(InstanceID=self._instance_id, async=True)
+
+            # add parsing function
+            d.addCallback(parse_posinfo)
+
+            # generic logging of return value
+            d.addCallback(self._log_async, 2, 'Scrub requested, returning duration, position: %r')
+            return d
         else:
-            return 0.0, 0.0
+            # return a Deferred that has callback already
+            return defer.succeed((0.0, 0.0))
 
     def is_playing(self):
         if self._uri:
-            state = self._get_current_transport_state()
-            playing = state == 'PLAYING'
-            self.msg(2, 'Play status requested, returning %s' % (playing, ))
-            return playing
+            # async call, returns a Deferred
+            d = self._avtransport.GetTransportInfo(InstanceID=self._instance_id, async=True)
+
+            # add parsing function
+            d.addCallback(lambda stateinfo: stateinfo['CurrentTransportState'] == 'PLAYING')
+
+            # generic logging of return value
+            d.addCallback(self._log_async, 2, 'Play status requested, returning %r')
+            return d
         else:
-            return False
+            # return a Deferred that has callback already
+            return defer.succeed(False)
 
     def _get_current_transport_state(self):
         stateinfo = self._avtransport.GetTransportInfo(

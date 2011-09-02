@@ -114,11 +114,12 @@ class BaseResource(resource.Resource):
                 # wait for both Deferreds in parallel, but we want to know as
                 # soon as one of them callbacks or errbacks
                 dl = defer.DeferredList([ret, notify], fireOnOneCallback=True,
-                                        fireOnOneErrback=True)
+                                        fireOnOneErrback=True,
+                                        consumeErrors=True)
                 
                 # add our handlers
-                dl.addCallback(self.late_render, request)
-                dl.addErrback(self.late_error, request)
+                dl.addCallbacks(self.late_render, self.late_error,
+                                callbackArgs=[request], errbackArgs=[request])
                 
                 # the request is not finished yet
                 ret = server.NOT_DONE_YET
@@ -132,20 +133,31 @@ class BaseResource(resource.Resource):
     def late_render(self, result, request):
         # DeferredList callbacks with a two-tuple, the first value of which is
         # the result from the Deferred that fired. The notifyFinish Deferred
-        # callbacks with value None.when the request is finished normally.
+        # callbacks with value None when the request is finished normally.
         data = result[0]
         if data:
-            request.write(data)
-            request.finish()
+            try:
+                # must set content-length to avoid chunked encoding
+                request.setHeader('content-length', len(data))
+                request.write(data)
+                request.finish()
+            except:
+                log.err(None, "Failed to write response data for AirPlay request.")
 
     def late_error(self, fail, request):
         # DeferredList errbacks with a FirstError failure, from which we can
         # get the real failure.
-        fail = fail.subFailure
+        if isinstance(fail, defer.FirstError):
+            fail = fail.subFailure
         log.err(fail, "AirPlay request handling failed.")
         if not request._disconnected:
-            request.setResponseCode(501)
-            request.finish()
+            try:
+                # must set content-length to avoid chunked encoding
+                request.setHeader('content-length', 0)
+                request.setResponseCode(501)
+                request.finish()
+            except:
+                log.err(None, "Failed to write error response for AirPlay request.")
 
 
 class AirPlaySite(HTTPSite):
