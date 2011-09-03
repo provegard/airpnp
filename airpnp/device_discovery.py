@@ -160,14 +160,15 @@ class DeviceDiscoveryService(MultiService):
             log.msg(3, "Starting build of device with UDN = %s" % (udn, ))
             self._builders[udn] = d
 
-    def _send_soap_message(self, device, url, msg, async=False):
+    def _send_soap_message(self, device, url, msg, async=False, deferred=None):
         """Send a SOAP message and do error handling."""
         try:
             log.msg(3, 'Sending SOAP message to device %s:\n%s' %
                     (device, msg.tostring()))
-            send = send_soap_message_deferred if async else send_soap_message
-            answer = send(url, msg)
-            if not async:
+            if async:
+                answer = send_soap_message_deferred(url, msg, deferred=deferred)
+            else:
+                answer = send_soap_message(url, msg)
                 log.msg(3, 'Got response from device %s:\n%s' % (device,
                                                                  answer.tostring()))
                 if isinstance(answer, SoapError):

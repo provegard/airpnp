@@ -107,7 +107,7 @@ def send_soap_message(url, msg, mpost=False):
     return response
 
 
-def send_soap_message_deferred(url, msg, mpost=False):
+def send_soap_message_deferred(url, msg, mpost=False, deferred=None):
     """
     Send a SOAP message to the given URL.
     
@@ -125,7 +125,9 @@ def send_soap_message_deferred(url, msg, mpost=False):
             status = int(err.status)
             if not mpost and status == http.NOT_ALLOWED:
                 # new attempt
-                return send_soap_2(url, msg, mpost=True)
+                # don't pass the deferred here, because we're already
+                # within the callback/errback chain
+                return send_soap_message_deferred(url, msg, mpost=True)
             elif status == http.INTERNAL_SERVER_ERROR:
                 # return to the callback chain
                 return SoapError.parse(err.response)
@@ -148,8 +150,18 @@ def send_soap_message_deferred(url, msg, mpost=False):
     method = 'POST' if not mpost else 'M-POST'
 
     # initiate the request and add initial handlers
-    d = client.getPage(url, method=method, headers=headers, postdata=data,
-                       agent='OS/1.0 UPnP/1.0 airpnp/1.0')
+    if deferred:
+        def tourl(value):
+            return url
+        # the deferred is an initiator, so we don't care about
+        # its result
+        d = deferred
+        d.addCallback(tourl)
+        d.addCallback(client.getPage, method=method, headers=headers,
+                      postdata=data, agent='OS/1.0 UPnP/1.0 airpnp/1.0')
+    else:
+        d = client.getPage(url, method=method, headers=headers, postdata=data,
+                           agent='OS/1.0 UPnP/1.0 airpnp/1.0')
     d.addCallback(StringIO)
     d.addCallback(SoapMessage.parse)
     d.addErrback(handle_error)

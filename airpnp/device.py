@@ -231,6 +231,10 @@ class Action(object):
         # see it there is an async flag, defaults to False
         async = bool('async' in kwargs and kwargs.pop('async'))
 
+        # there may be a starting deferred also; only relevant
+        # if in async mode
+        deferred = 'deferred' in kwargs and kwargs.pop('deferred')
+
         # update the message with input argument values
         for arg in self.inargs:
             val = kwargs.get(arg.name)
@@ -239,7 +243,8 @@ class Action(object):
             msg.set_arg(arg.name, val)
 
         # send the message
-        result = self._soap_sender(self.service.device, self.service.controlURL, msg, async=async)
+        result = self._soap_sender(self.service.device, self.service.controlURL,
+                                   msg, async=async, defrerred=deferred)
 
         if async:
             # assume it's a Deferred
