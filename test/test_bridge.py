@@ -29,12 +29,14 @@ class TestAVControlPoint(unittest.TestCase):
         self.avcp.msg = lambda *args: None
 
     def test_get_scrub_without_uri(self):
-        duration, position = self.avcp.get_scrub()
+        # Deferred.result
+        duration, position = self.avcp.get_scrub().result
         self.assertEqual(duration, 0.0)
         self.assertEqual(position, 0.0)
 
     def test_is_playing_without_uri(self):
-        playing = self.avcp.is_playing()
+        # Deferred.result
+        playing = self.avcp.is_playing().result
         self.assertEqual(playing, False)
 
     def test_set_sid_allocates_instance_id(self):

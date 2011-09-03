@@ -7,6 +7,7 @@ from airpnp.AirPlayService import AirPlayService
 from airpnp.airplayserver import IAirPlayServer
 from cStringIO import StringIO
 from twisted.web import http, server
+from twisted.internet import defer
 from twisted.test.proto_helpers import StringTransport
 from zope.interface import implements
 
@@ -78,14 +79,14 @@ class TestAirPlayProtocol(unittest.TestCase):
         self.assertTrue(self.apserver.stop.called)
         
     def test_get_scrub_method_calls(self):
-        self.apserver.get_scrub.return_value = 0.0, 0.0
+        self.apserver.get_scrub.return_value = defer.succeed((0.0, 0.0))
         data = "GET /scrub HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
         self.assertTrue(self.apserver.get_scrub.called)
 
     def test_get_scrub_response_data(self):
-        self.apserver.get_scrub.return_value = 0.0, 0.0
+        self.apserver.get_scrub.return_value = defer.succeed((0.0, 0.0))
         data = "GET /scrub HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
@@ -160,8 +161,8 @@ class TestAirPlayProtocol(unittest.TestCase):
         self.assertEqual(args[1], 0.0005364880198612809)
 
     def _send_playback_info(self, get_scrub_response, is_playing_response):
-        self.apserver.get_scrub.return_value = get_scrub_response
-        self.apserver.is_playing.return_value = is_playing_response
+        self.apserver.get_scrub.return_value = defer.succeed(get_scrub_response)
+        self.apserver.is_playing.return_value = defer.succeed(is_playing_response)
         data = "GET /playback-info HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"
         self._send_data(data)
 
