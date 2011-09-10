@@ -1,6 +1,7 @@
 CHANGELOG
 
 Upcoming
+* Add support for photo viewing from iDevices.
 * Use nosetests for running tests now.
 * Changed get_scrub and is_playing of AVControlPoint to be asynchronuous.
 * Removed dependency on python-routes.
