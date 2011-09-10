@@ -1,4 +1,4 @@
-airpnp 0.22
+airpnp 0.23b
 1 Aug 2011
 README
 =================
@@ -40,6 +40,7 @@ following commands install the required dependencies:
 For running tests:
 
     sudo apt-get install python-setuptools
+    sudo apt-get install python-nose
     sudo easy_install mock
 
 Version 0.7.0 of python-mock that exists in the Natty repositories is not
@@ -82,7 +83,7 @@ To run in the foreground, use the following command:
 
 To run unit tests, run the following from the top-level directory:
 
-    python run_tests.py
+    nosetests
 
 
 Contact Information
@@ -99,18 +100,4 @@ licensed using the MIT license. Airpnp as a whole is licensed using the
 3-clause BSD license.
 
 See the file LICENSE for the full license text.
-
-Changelog
----------
-Version 0.22:
-Updated error handling, added support for playing from all iDevice apps.
-
-Version 0.21:
-Updated this README, removed references to ~/.airpnprc
-
-Version 0.2:
-Adapted to twistd daemon, changed to use Twisted logging
-
-Version 0.1:
-First public release
 

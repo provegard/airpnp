@@ -1,0 +1,24 @@
+CHANGELOG
+
+Upcoming
+* Use nosetests for running tests now.
+* Changed get_scrub and is_playing of AVControlPoint to be asynchronuous.
+* Removed dependency on python-routes.
+* Added Interactive Web for UPnP debugging.
+* Increased robustness by checking that UPnP service are present.
+* Increased robustness by using Twisted Deferreds for device building.
+
+Version 0.22:
+* Updated error handling
+* Added support for playing from all iDevice apps.
+* ~/.airpnprc is used again, for log configuration.
+
+Version 0.21:
+* Updated README, removed references to ~/.airpnprc.
+
+Version 0.2:
+* Adapted to twistd daemon, changed to use Twisted logging.
+
+Version 0.1:
+* First public release.
+
