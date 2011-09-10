@@ -43,7 +43,6 @@ from twisted.internet.threads import blockingCallFromThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python.threadable import isInIOThread
 from twisted.web import server, resource, wsgi, static
-import webob
 
 
 __all__ = [
@@ -955,6 +954,7 @@ class ByteSeekMixin(object):
 
 class TimeSeekMixin(object):
     def time_seek(self, environ, headers, content):
+        import webob
         npt_time = environ.get('HTTP_TIMESEEKRANGE.DLNA.ORG', '')
         if not npt_time.startswith('npt='):
             return '200 OK'
