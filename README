@@ -44,7 +44,7 @@ For running tests:
     sudo easy_install mock
 
 Version 0.7.0 of python-mock that exists in the Natty repositories is not
-sufficient. As of this writing, easy_install provides version 0.8.0beta1.
+sufficient. As of this writing, easy_install provides version 0.8.0beta3.
 
 The avahi daemon must be installed:
 

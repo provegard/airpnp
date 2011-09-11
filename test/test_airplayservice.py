@@ -156,7 +156,8 @@ class TestAirPlayProtocol(unittest.TestCase):
         self._send_data(data)
 
         self.assertTrue(self.apserver.play.called)
-        args = self.apserver.play.call_args[1]
+        # changed 1 -> 0 between mock 0.8.0beta1 and beta3
+        args = self.apserver.play.call_args[0]
         self.assertTrue(args[0].startswith("http://"))
         self.assertEqual(args[1], 0.0005364880198612809)
 
