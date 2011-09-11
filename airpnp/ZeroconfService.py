@@ -20,8 +20,6 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import avahi
-import dbus
 from twisted.application.service import Service
 
 __all__ = ["ZeroconfService"]
@@ -36,6 +34,9 @@ class ZeroconfService(Service):
         self.text = text
 
     def startService(self):
+        import avahi
+        import dbus
+
         Service.startService(self)
         bus = dbus.SystemBus()
         server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
