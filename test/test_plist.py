@@ -38,20 +38,13 @@ class DataProvider(type):
                 self.assertEqual(obj, expected)
             return test_method
 
-        # replacement dictionary
-        newClassDict = {}
-
-        # add the old methods
-        for attrName, attr in classDict.items():
-            newClassDict[attrName] = attr
-
-        # generate new method based on test data
+        # generate new methods based on test data
         for fname, expected in DATA:
             part = os.path.splitext(os.path.basename(fname))[0]
-            newClassDict["test_" + part] = create_test_method(fname, expected)
+            classDict["test_" + part] = create_test_method(fname, expected)
 
         # create!
-        return type.__new__(meta, classname, bases, newClassDict)
+        return type.__new__(meta, classname, bases, classDict)
 
 class TestReadBinary(unittest.TestCase):
 
