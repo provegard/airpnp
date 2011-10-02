@@ -93,7 +93,7 @@ class DeviceBuilder(object):
             d.addCallback(ET.fromstring)
             d.addCallback(self._init_service, service)
             return d
-        dl = [start_init_service(s) for s in device.get_services()]
+        dl = [start_init_service(s) for s in device]
         return defer.DeferredList(dl)
 
     def build(self, location):

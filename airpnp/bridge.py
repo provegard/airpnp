@@ -120,8 +120,8 @@ class AVControlPoint(object):
     sid = None
 
     def __init__(self, device, photoweb):
-        self._connmgr = device.get_service_by_id(CN_MGR_SERVICE)
-        self._avtransport = device.get_service_by_id(AVT_SERVICE)
+        self._connmgr = device[CN_MGR_SERVICE]
+        self._avtransport = device[AVT_SERVICE]
         self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
         self._photoweb = photoweb
 

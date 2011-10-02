@@ -92,22 +92,16 @@ class Device(XMLAttributeMixin):
 
     def _read_services(self, element):
         for service in element.findall(toxpath('serviceList/service', ns.device)):
-            self._add_service(Service(self, service, self._base_url))
+            s = Service(self, service, self._base_url)
+            self._services[s.serviceId] = s
 
-    def _add_service(self, service):
-        self._services[service.serviceId] = service
+    def __iter__(self):
+        for s in self._services:
+            yield s
 
-    def get_services(self):
-        """Return an immutable list of services for this device."""
-        return self._services.viewvalues()
-
-    def get_service_ids(self):
-        """Return an immutable list of IDs of services for this device."""
-        return self._services.viewkeys()
-
-    def get_service_by_id(self, sid):
+    def __getitem__(self, key):
         """Return a service based on its ID."""
-        return self._services[sid]
+        return self._services[key]
 
     def get_base_url(self):
         """Return the base URL of the device configuration."""

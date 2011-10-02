@@ -16,8 +16,8 @@ class TestAVControlPoint(unittest.TestCase):
                 return self.connmgr
             else:
                 raise ValueError("Unknown id: " + id)
-        device = mock.Mock()
-        device.get_service_by_id = mock.Mock(side_effect=gsbyid)
+        device = mock.MagicMock()
+        device.__getitem__ = mock.Mock(side_effect=gsbyid)
         self.avcp = AVControlPoint(device, None)
 
         # mock away instance ID business since these methods check for 

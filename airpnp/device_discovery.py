@@ -90,7 +90,7 @@ class DeviceDiscoveryService(MultiService):
 
         # the device must contain all required services
         req_services = set(self._req_services)
-        act_services = set(device.get_service_ids())
+        act_services = set([s.serviceId for s in device])
         if not req_services.issubset(act_services):
             missing = req_services.difference(act_services)
             reason = "services %s are missing" % (list(missing), )

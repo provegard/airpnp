@@ -53,10 +53,9 @@ class InteractiveWeb(TCPServer):
 
     def create_device_site(self, device):
         root = ListChildrenResource("Services")
-        for id in device.get_service_ids():
-            service = device.get_service_by_id(id)
+        for service in device:
             oplist = ListChildrenResource("Operations")
-            root.putChild(id, oplist)
+            root.putChild(service.serviceId, oplist)
             for op in service.actions:
                 action = getattr(service, op)
                 show = ShowOperationResource(device, service, action)
