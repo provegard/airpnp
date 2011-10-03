@@ -1,10 +1,14 @@
 import unittest
 import urllib2
+from mock import patch
 from airpnp.util import *
 from airpnp.upnp import SoapMessage, SoapError
 from cStringIO import StringIO
 from airpnp.upnp import parse_duration as hms_to_sec
 from airpnp.upnp import to_duration as sec_to_hms
+from twisted.internet import defer
+from twisted.python import failure
+from twisted.web import error, http
 
 
 class RaisingOpener:
@@ -49,6 +53,108 @@ class TestGetMaxAge(unittest.TestCase):
         max_age = get_max_age(headers)
 
         self.assertIsNone(max_age)
+
+
+@patch('twisted.web.client.getPage')
+class TestSendSoapMessageDeferred(unittest.TestCase):
+
+    def test_request_headers(self, pageMock):
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        headers = pageMock.call_args[1]['headers']
+        self.assertEqual(headers['Content-Type'], 'text/xml; charset="utf-8"')
+        self.assertEqual(headers['Soapaction'],
+                         '"urn:schemas-upnp-org:service:ConnectionManager:1#GetCurrentConnectionIDs"')
+
+    def test_request_agent(self, pageMock):
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        agent = pageMock.call_args[1]['agent']
+        self.assertEqual(agent, 'OS/1.0 UPnP/1.0 airpnp/1.0')
+
+    def test_soap_response(self, pageMock):
+        # Setup mock
+        pageMock.return_value = defer.succeed(SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1',
+                                                          'GetCurrentConnectionIDsResponse').tostring())
+
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        d = send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        response = d.result
+        self.assertEqual(response.__class__, SoapMessage)
+        self.assertEqual(response.get_header(),
+                         '"urn:schemas-upnp-org:service:ConnectionManager:1#GetCurrentConnectionIDsResponse"')
+
+    def test_soap_error_on_500_response(self, pageMock):
+        # Setup mock
+        f = failure.Failure(error.Error(http.INTERNAL_SERVER_ERROR, 'Internal Error', 
+                                        SoapError(501, 'Action Failed').tostring()))
+        pageMock.return_value = defer.fail(f)
+
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        d = send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        response = d.result
+        self.assertEqual(response.__class__, SoapError)
+        self.assertEqual(response.code, '501')
+
+    def test_unrecognized_error_is_reraised(self, pageMock):
+        # Setup mock
+        f = failure.Failure(error.Error(http.NOT_FOUND, 'Not Found', 'Not Found'))
+        pageMock.return_value = defer.fail(f)
+
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        d = send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        f = d.result
+        self.assertTrue(f.check(error.Error))
+
+    def test_fallback_to_mpost(self, pageMock):
+        # Setup mock
+        def side_effect(*args, **kwargs):
+            def second_call(*args, **kwargs):
+                return defer.succeed(SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1',
+                                                 'GetCurrentConnectionIDsResponse').tostring())
+            pageMock.side_effect = second_call
+            f = failure.Failure(error.Error(http.NOT_ALLOWED, 'Method Not Allowed',
+                                            'Method Not Allowed'))
+            return defer.fail(f)
+        pageMock.side_effect = side_effect
+
+        # Given
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'GetCurrentConnectionIDs')
+
+        # When
+        send_soap_message_deferred('http://www.dummy.com', msg)
+
+        # Then
+        headers = pageMock.call_args[1]['headers']
+        self.assertEqual(headers['Man'],
+                         '"http://schemas.xmlsoap.org/soap/envelope/"; ns=01')
+        self.assertEqual(headers['01-Soapaction'],
+                         '"urn:schemas-upnp-org:service:ConnectionManager:1#GetCurrentConnectionIDs"')
 
 
 class TestSendSoapMessage(unittest.TestCase):
