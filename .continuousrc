@@ -1,1 +1,1 @@
-TEST_COMMAND="/var/env_test/bin/nosetests"
+TEST_COMMAND="$ENV_DIR/bin/nosetests --with-xunit --with-xcover --cover-package=airpnp --xunit-file=results.xml"
