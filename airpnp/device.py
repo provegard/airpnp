@@ -26,7 +26,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from upnp import SoapMessage, SoapError, ns
+from upnp import SoapMessage, SoapError, ns, toxpath
 from urlparse import urljoin
 
 __all__ = [
@@ -42,46 +42,14 @@ DEVICE_ATTRS = ['deviceType', 'friendlyName', 'manufacturer',
 # Mandatory XML attributes for a service
 SERVICE_ATTRS = ['serviceType', 'serviceId', 'SCPDURL',
                  'controlURL', 'eventSubURL']
-
-
-def find_elements(element, namespace, path):
-    """Find elements based on path relative to an element.
-
-    Arguments:
-    element   -- the element the path is relative to
-    namespace -- the namespace of all elements in the path
-    path      -- the relative path
-
-    Return an iterator with the elements found.
-
-    """
-    parts = ['{%s}%s' % (namespace, part) for part in path.split('/')]
-    newpath = '/'.join(parts)
-    return element.findall(newpath)
-
-
-def add_xml_attrs(obj, element, namespace, attrs):
-    """Add attributes to an object based on XML elements.
-
-    Given a list of XML element names, adds corresponding object attributes and
-    values to an object.
-
-    Arguments:
-    obj       -- object to add attributes to
-    element   -- the element whose child elements are sought based on the
-                 attribute names
-    namespace -- XML namespace of elements
-    attrs     -- list of attribute names, each of which is expected to match
-                 the tag name of a child element of the given element
-
-    """
-    for attr in attrs:
-        val = element.findtext('{%s}%s' % (namespace, attr))
-        if val is None:
-            raise ValueError('Missing attribute: %s' % (attr, ))
-        else:
-            val = val.strip()
-            setattr(obj, attr, val)
+            
+            
+class XMLAttributeMixin(object):
+    
+    def __getattr__(self, name):
+        if not name in self.xmlattrs:
+            raise NameError(name)
+        return self.element.findtext(toxpath(name, self.xmlnamespace)).strip()
 
 
 class CommandError(Exception):
@@ -94,9 +62,11 @@ class CommandError(Exception):
         return self._err
 
 
-class Device(object):
-
+class Device(XMLAttributeMixin):
     """Class that represents a UPnP device."""
+    
+    xmlattrs = DEVICE_ATTRS
+    xmlnamespace = ns.device
 
     def __init__(self, element, base_url):
         """Initialize this Device object.
@@ -117,13 +87,11 @@ class Device(object):
         """
         self._base_url = base_url
         self._services = {}
-        for deviceElement in find_elements(element, ns.device, 'device'):
-            add_xml_attrs(self, deviceElement, ns.device, DEVICE_ATTRS)
-            self._read_services(deviceElement)
+        self.element = element.find(toxpath('device', ns.device))
+        self._read_services(self.element)
 
     def _read_services(self, element):
-        for service in find_elements(element, ns.device,
-                                     'serviceList/service'):
+        for service in element.findall(toxpath('serviceList/service', ns.device)):
             self._add_service(Service(self, service, self._base_url))
 
     def _add_service(self, service):
@@ -149,8 +117,7 @@ class Device(object):
         return '%s [UDN=%s]' % (self.friendlyName, self.UDN)
 
 
-class Service(object):
-
+class Service(XMLAttributeMixin):
     """Class that represents a UPnP service.
 
     Once initialized, service actions can be invoked as regular methods,
@@ -158,6 +125,9 @@ class Service(object):
     arguments are likewise returned as a dictionary.
 
     """
+
+    xmlattrs = SERVICE_ATTRS
+    xmlnamespace = ns.device
 
     def __init__(self, device, element, base_url):
         """Initialize this Service object partly.
@@ -176,10 +146,8 @@ class Service(object):
                     URLs found in the service configuration
 
         """
-        add_xml_attrs(self, element, ns.device, SERVICE_ATTRS)
+        self.element = element
         self._base_url = base_url
-        self._resolve_urls([attr for attr in SERVICE_ATTRS if
-                            attr.endswith('URL')], base_url)
         self.device = device
         self.actions = {}
 
@@ -197,22 +165,25 @@ class Service(object):
         self._add_actions(scpd_element, soap_sender)
 
     def _add_actions(self, element, soap_sender):
-        for action in find_elements(element, ns.service, 'actionList/action'):
+        for action in element.findall(toxpath('actionList/action', ns.service)):
             act = Action(self, action, soap_sender)
             self.actions[act.name] = act
             setattr(self, act.name, act)
+            
+    def __getattr__(self, name):
+        value = super(Service, self).__getattr__(name)
+        if name.endswith('URL'):
+            value = urljoin(self._base_url, value)
+        return value
 
-    def _resolve_urls(self, attrs, base_url):
-        for attr in attrs:
-            val = getattr(self, attr)
-            newval = urljoin(base_url, val)
-            setattr(self, attr, newval)
 
+class Action(XMLAttributeMixin):
 
-class Action(object):
+    xmlattrs = ['name']
+    xmlnamespace = ns.service
 
     def __init__(self, service, element, soap_sender):
-        add_xml_attrs(self, element, ns.service, ['name'])
+        self.element = element
         self.arguments = []
         self._add_arguments(element)
         self._soap_sender = soap_sender
@@ -221,8 +192,7 @@ class Action(object):
         self.outargs = [arg for arg in self.arguments if arg.direction == 'out']
 
     def _add_arguments(self, element):
-        for argument in find_elements(element, ns.service,
-                                      'argumentList/argument'):
+        for argument in element.findall(toxpath('argumentList/argument', ns.service)):
             self.arguments.append(Argument(argument))
 
     def __call__(self, *args, **kwargs):
@@ -254,11 +224,14 @@ class Action(object):
             return decode_soap(result, self.outargs)
 
 
-class Argument(object):
+class Argument(XMLAttributeMixin):
+    
+    xmlattrs = ['name', 'direction', 'relatedStateVariable']
+    xmlnamespace = ns.service
 
     def __init__(self, element):
-        add_xml_attrs(self, element, ns.service, ['name', 'direction',
-                                                  'relatedStateVariable'])
+        self.element = element
+
 
 def decode_soap(msg, outargs):
     if isinstance(msg, SoapError):
