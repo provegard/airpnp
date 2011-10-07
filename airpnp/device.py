@@ -36,7 +36,7 @@ __all__ = [
 
 # Mandatory XML attributes for a device
 DEVICE_ATTRS = ['deviceType', 'friendlyName', 'manufacturer',
-                'modelName', 'modelNumber', 'UDN']
+                'modelName', 'UDN']
 #TODO, optional: manufacturerURL, modelDescription, modelNumber, modelURL
 
 # Mandatory XML attributes for a service

@@ -19,7 +19,6 @@ class TestDevice(unittest.TestCase):
                          'urn:schemas-upnp-org:device:MediaRenderer:1')
         self.assertEqual(device.manufacturer, 'Western Digital Corporation')
         self.assertEqual(device.modelName, 'WD TV HD Live')
-        self.assertEqual(device.modelNumber, 'WDBAAP')
 
     def test_service_count(self):
         device = self.device
