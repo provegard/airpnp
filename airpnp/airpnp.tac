@@ -28,6 +28,12 @@
 
 from bridge import BridgeServer
 from twisted.application.service import Application
+from twisted.internet import protocol
 
+def tweak_twisted():
+    protocol.AbstractDatagramProtocol.noisy = False
+    protocol.Factory.noisy = False
+
+tweak_twisted()
 application = Application('airpnp')
 BridgeServer().setServiceParent(application)

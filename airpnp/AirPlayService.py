@@ -26,7 +26,7 @@ import aplog as log
 
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
-from airplayserver import BaseResource, AirPlaySite, IAirPlayServer
+from airplayserver import BaseResource, IAirPlayServer
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
@@ -223,7 +223,7 @@ class AirPlayService(MultiService):
         root.putChild("server-info", ServerInfoResource(self.apserver, self.deviceid,
                                                         self.features,
                                                         self.model))
-        return AirPlaySite(root)
+        return server.Site(root)
 
     def startService(self):
         MultiService.startService(self)

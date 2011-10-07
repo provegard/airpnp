@@ -35,9 +35,10 @@ from AirPlayService import AirPlayService
 from upnp import parse_duration, to_duration
 from config import config
 from interactive import InteractiveWeb
-from http import DynamicResourceServer
 from zope.interface import implements
 from twisted.internet import defer
+from twisted.application.internet import TCPServer
+from twisted.web import server, resource, static
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -69,7 +70,7 @@ class BridgeServer(DeviceDiscoveryService):
             self.iweb = None
 
         # add a server for serving photos to UPnP devices
-        self.photoweb = DynamicResourceServer(0, 5)
+        self.photoweb = PhotoWeb(0, 5)
         self.photoweb.setServiceParent(self)
 
     def startService(self):
@@ -316,6 +317,23 @@ class AVControlPoint(object):
     def release_instance_id(self, instance_id):
         if hasattr(self._connmgr, 'ConnectionComplete'):
             self.msg(2, 'ConnectionManager::ConnectionComplete not implemented!')
+
+
+class PhotoWeb(TCPServer):
+
+    def __init__(self, port, backlog):
+        self.root = resource.Resource()
+        TCPServer.__init__(self, port, server.Site(self.root), backlog)
+
+    def publish(self, name, content_type, data):
+        self.root.putChild(name, static.Data(data, content_type))
+
+    def unpublish(self, name):
+        self.root.delEntity(name)
+        
+    @property
+    def port(self):
+        return self._port.getHost().port
 
 
 def get_image_type(data):

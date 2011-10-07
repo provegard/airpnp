@@ -29,14 +29,12 @@
 import aplog as log
 from twisted.web import resource, server
 from twisted.internet import defer
-from http import HTTPSite
 from zope.interface import Interface
 
 __all__ = [
     'BaseResource',
     'IAirPlayServer',
     'SessionRejectedError',
-    'AirPlaySite',
 ]
 
 
@@ -158,7 +156,3 @@ class BaseResource(resource.Resource):
                 request.finish()
             except:
                 log.err(None, "Failed to write error response for AirPlay request.")
-
-
-class AirPlaySite(HTTPSite):
-    pass

@@ -198,8 +198,8 @@ class BinaryPListReader(object):
             # 64 bits
             ret, = unpack(">d", self._fd.read(8))
         else:
-            raise PLisUnhandledError("Unhandled real size: %d" %
-                                     (1 << log2count, ))
+            raise PListUnhandledError("Unhandled real size: %d" %
+                                      (1 << log2count, ))
         return ret
 
     def _read_sized_int(self, count):

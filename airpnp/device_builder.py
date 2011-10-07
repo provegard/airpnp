@@ -29,7 +29,7 @@
 from xml.etree import ElementTree as ET
 from device import Device
 from twisted.internet import defer
-from http import get_page
+from twisted.web import client
 
 
 __all__ = [
@@ -70,9 +70,6 @@ class DeviceBuilder(object):
         self._filter = filter_
         self._soap_sender = soap_sender
 
-    def _get_page(self, url):
-        return get_page(url, timeout=5)
-
     def _check_filter(self, device):
         if self._filter:
             accepted, reason = self._filter(device)
@@ -92,7 +89,7 @@ class DeviceBuilder(object):
 
     def _init_services(self, device):
         def start_init_service(service):
-            d = get_page(service.SCPDURL, timeout=5)
+            d = client.getPage(service.SCPDURL, timeout=5)
             d.addCallback(ET.fromstring)
             d.addCallback(self._init_service, service)
             return d
@@ -113,7 +110,7 @@ class DeviceBuilder(object):
         d = defer.succeed(location)
 
         # get the device XML
-        d.addCallback(self._get_page)
+        d.addCallback(client.getPage, timeout=5)
 
         # parse it to an element
         d.addCallback(ET.fromstring)
