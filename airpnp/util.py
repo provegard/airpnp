@@ -38,6 +38,7 @@ __all__ = [
     'send_soap_message_deferred',
     'split_usn',
     'get_max_age',
+    'get_image_type',
 ]
 
 
@@ -203,3 +204,9 @@ def get_max_age(headers):
                                                                   parts[1]):
             ret = int(parts[1])
     return ret
+
+def get_image_type(data):
+    """Return a tuple of (content type, extension) for the image data."""
+    if data[:2] == "\xff\xd8":
+        return ("image/jpeg", ".jpg")
+    return ("image/unknown", ".bin")

@@ -362,3 +362,16 @@ class TestSplitUsn(unittest.TestCase):
 
         self.assertEqual(p1, 'uuid:x')
         self.assertEqual(p2, '')
+        
+
+class TestGetImageType(unittest.TestCase):
+    
+    def test_with_jpeg_data(self):
+        data = "\xff\xd8\x01\x02\x03\x04"
+        actual = get_image_type(data)
+        self.assertEqual(("image/jpeg", ".jpg"), actual)
+
+    def test_with_unrecognized_data(self):
+        data = "\x01\x02\x03\x04"
+        actual = get_image_type(data)
+        self.assertEqual(("image/unknown", ".bin"), actual)

@@ -335,9 +335,3 @@ class PhotoWeb(TCPServer):
     def port(self):
         return self._port.getHost().port
 
-
-def get_image_type(data):
-    """Return a tuple of (content type, extension) for the image data."""
-    if data[:2] == "\xff\xd8":
-        return ("image/jpeg", ".jpg")
-    return ("image/unknown", ".bin")
