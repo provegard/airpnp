@@ -32,6 +32,7 @@ from urlparse import urljoin
 __all__ = [
     'Device',
     'Service',
+    'CommandError',
 ]
 
 # Mandatory XML attributes for a device

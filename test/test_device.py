@@ -92,6 +92,26 @@ class TestService(unittest.TestCase):
         self.assertEqual(args[1], self.service.controlURL)
         self.assertEqual(args[2].__class__, upnp.SoapMessage)
 
+    def test_service_action_soap_message_contains_in_args(self):
+        self.service.GetCurrentTransportActions(InstanceID="0")
+        args, _ = self.soap_sender.call_args
+
+        msg = args[2]
+        self.assertEqual(msg.get_arg("InstanceID"), "0")
+
+    def test_service_action_soap_response_is_returned_as_dict(self):
+        response = upnp.SoapMessage(self.service.serviceType, "GetCurrentTransportActionsResponse")
+        response.set_arg("Actions", "test")
+        self.soap_sender.return_value = response
+
+        actual = self.service.GetCurrentTransportActions(InstanceID="0")
+        self.assertEqual(actual, {"Actions": "test"})
+
+    def test_service_action_soap_error_is_decoded_to_exception(self):
+        self.soap_sender.return_value = upnp.SoapError()
+
+        self.assertRaises(CommandError, self.service.GetCurrentTransportActions, InstanceID="0")
+        
 
     #TODO: 
     # - async + deferred
