@@ -3,6 +3,7 @@ import mock
 import airpnp.upnp as upnp
 from airpnp.device import *
 from xml.etree import ElementTree
+from twisted.internet import defer
 
 
 class TestDevice(unittest.TestCase):
@@ -112,7 +113,47 @@ class TestService(unittest.TestCase):
 
         self.assertRaises(CommandError, self.service.GetCurrentTransportActions, InstanceID="0")
         
+    def test_service_action_soap_sender_async_args_without_async(self):
+        self.service.GetCurrentTransportActions(InstanceID="0")
+        _, kwargs = self.soap_sender.call_args
 
-    #TODO: 
-    # - async + deferred
-    # - getting result
+        self.assertEqual(kwargs, {'async': False, 'deferred': None})
+
+    def test_service_action_soap_sender_async_args_with_async(self):
+        self.service.GetCurrentTransportActions(InstanceID="0", async=True)
+        _, kwargs = self.soap_sender.call_args
+
+        self.assertEqual(kwargs, {'async': True, 'deferred': None})
+
+    def test_service_action_soap_sender_async_args_with_async_and_deferred(self):
+        d = defer.Deferred()
+        self.service.GetCurrentTransportActions(InstanceID="0", async=True,
+                                                deferred=d)
+        _, kwargs = self.soap_sender.call_args
+
+        self.assertEqual(kwargs, {'async': True, 'deferred': d})
+    
+    def test_service_action_soap_sender_async_args_deferred_requires_async(self):
+        self.service.GetCurrentTransportActions(InstanceID="0", async=False,
+                                                deferred=defer.Deferred())
+        _, kwargs = self.soap_sender.call_args
+
+        self.assertEqual(kwargs, {'async': False, 'deferred': None})
+
+    def test_service_action_async_returns_deferred(self):
+        self.soap_sender.return_value = defer.Deferred()
+        actual = self.service.GetCurrentTransportActions(InstanceID="0", async=True)
+
+        self.assertEqual(actual.__class__, defer.Deferred)
+
+    def test_service_action_async_parser_soap_message(self):
+        response = upnp.SoapMessage(self.service.serviceType, "GetCurrentTransportActionsResponse")
+        response.set_arg("Actions", "test")
+        ret = defer.Deferred()
+        self.soap_sender.return_value = ret
+
+        actual = self.service.GetCurrentTransportActions(InstanceID="0", async=True)
+
+        ret.callback(response)
+        self.assertEqual(actual.result, {"Actions": "test"})
+

@@ -198,7 +198,7 @@ class Action(XMLAttributeMixin):
 
         # there may be a starting deferred also; only relevant
         # if in async mode
-        deferred = 'deferred' in kwargs and kwargs.pop('deferred')
+        deferred = (async and 'deferred' in kwargs) and kwargs.pop('deferred') or None
 
         # update the message with input argument values
         for arg in self.inargs:
@@ -209,7 +209,7 @@ class Action(XMLAttributeMixin):
 
         # send the message
         result = self._soap_sender(self.service.device, self.service.controlURL,
-                                   msg, async=async, defrerred=deferred)
+                                   msg, async=async, deferred=deferred)
 
         if async:
             # assume it's a Deferred
