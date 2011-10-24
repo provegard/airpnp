@@ -97,8 +97,7 @@ class Device(XMLAttributeMixin):
             self._services[s.serviceId] = s
 
     def __iter__(self):
-        for s in self._services:
-            yield s
+        return self._services.itervalues()
 
     def __getitem__(self, key):
         """Return a service based on its ID."""
