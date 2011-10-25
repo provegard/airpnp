@@ -53,12 +53,15 @@ def patch_log(oldf):
         ll = kw.has_key('ll') and kw['ll'] or DEFAULT_LOG_LEVEL
 
         # Adjust log level for Twisted's messages
-        if get_calling_module().__name__.startswith('twisted.'):
+        module = get_calling_module().__name__
+        if module.startswith('twisted.'):
             ll = TWISTED_LOG_LEVEL
 
         # Log if level is on or below the configured limit
         if ll <= config.loglevel():
-            oldf(*message, **kw)
+            nkw = kw.copy()
+            nkw['system'] = "%s/%d" % (module, ll)
+            oldf(*message, **nkw)
     return mylog
 
 def tweak_twisted():

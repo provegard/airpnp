@@ -116,7 +116,6 @@ class ScrubResource(BaseResource):
         return d
     
     def late_render_get(self, value):
-        log.msg("late_render_get, value = %r" % (value, ), ll=2)
         d, p = value
         content = "duration: " + str(float(d))
         content += "\nposition: " + str(float(p))

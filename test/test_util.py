@@ -375,3 +375,22 @@ class TestGetImageType(unittest.TestCase):
         data = "\x01\x02\x03\x04"
         actual = get_image_type(data)
         self.assertEqual(("image/unknown", ".bin"), actual)
+
+
+class TestFormatSoapMessage(unittest.TestCase):
+
+    def test_format_message_without_args(self):
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'AnOperation')
+        self.assertEqual('AnOperation()', format_soap_message(msg))
+
+    def test_format_message_with_one_arg(self):
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'AnOperation')
+        msg.set_arg("Arg1", "0")
+        self.assertEqual('AnOperation(Arg1=0)', format_soap_message(msg))
+
+    def test_format_message_with_two_args(self):
+        msg = SoapMessage('urn:schemas-upnp-org:service:ConnectionManager:1', 'AnOperation')
+        msg.set_arg("Arg1", "0")
+        msg.set_arg("Arg2", "0")
+        self.assertEqual('AnOperation(Arg1=0, Arg2=0)', format_soap_message(msg))
+

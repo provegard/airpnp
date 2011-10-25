@@ -34,6 +34,7 @@ from twisted.web import client, error, http
 from twisted.python import log
 
 __all__ = [
+    'format_soap_message',
     'send_soap_message',
     'send_soap_message_deferred',
     'split_usn',
@@ -210,3 +211,12 @@ def get_image_type(data):
     if data[:2] == "\xff\xd8":
         return ("image/jpeg", ".jpg")
     return ("image/unknown", ".bin")
+
+
+def format_soap_message(msg):
+    args = msg.get_args()
+    arg_str = ", ".join(["%s=%s" % (k, v) for k, v in args])
+    name = msg.action.tag
+    name = name[name.find("}")+1:]
+    return "%s(%s)" % (name, arg_str)
+

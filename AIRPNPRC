@@ -1,5 +1,5 @@
 [airpnp]
-# 1 = standard, 2 = operation debug, 3 = network debug
+# 1 = standard, 2 = operation debug, 3 = network debug, 4 = Twisted messages
 loglevel=1
 
 # on/yes to enable Interactive Web

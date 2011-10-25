@@ -122,7 +122,7 @@ class AVControlPoint(object):
     def __init__(self, device, photoweb):
         self._connmgr = device[CN_MGR_SERVICE]
         self._avtransport = device[AVT_SERVICE]
-        self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device, msg), ll=ll)
+        self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device.friendlyName, msg), ll=ll)
         self._photoweb = photoweb
         self._instance_id = self.allocate_instance_id()
     

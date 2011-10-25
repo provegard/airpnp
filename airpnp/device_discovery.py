@@ -33,7 +33,7 @@ from twisted.internet import reactor, defer
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
 from twisted.python import log
-from util import send_soap_message, split_usn, get_max_age, send_soap_message_deferred
+from util import *
 from device_builder import DeviceRejectedError, DeviceBuilder
 
 
@@ -162,15 +162,19 @@ class DeviceDiscoveryService(MultiService):
 
     def _send_soap_message(self, device, url, msg, async=False, deferred=None):
         """Send a SOAP message and do error handling."""
+        def log_answer(response):
+            log.msg('Got SOAP response from %s: %s' %
+                    (device.friendlyName, format_soap_message(response)), ll=3)
+            return response
         try:
-            log.msg('Sending SOAP message to device %s:\n%s' %
-                    (device, msg.tostring()), ll=3)
+            log.msg('Sending SOAP message to %s: %s' %
+                    (device.friendlyName, format_soap_message(msg)), ll=3)
             if async:
                 answer = send_soap_message_deferred(url, msg, deferred=deferred)
+                answer.addCallback(log_answer)
             else:
                 answer = send_soap_message(url, msg)
-                log.msg('Got response from device %s:\n%s' % (device, answer.tostring()),
-                        ll=3)
+                log_answer(answer)
                 if isinstance(answer, SoapError):
                     # log only, don't raise - assume caller handles the error
                     log.msg('Error response for %s command to device %s: %s/%s' %
