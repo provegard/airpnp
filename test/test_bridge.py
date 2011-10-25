@@ -39,18 +39,6 @@ class TestAVControlPoint(unittest.TestCase):
         playing = self.avcp.is_playing().result
         self.assertEqual(playing, False)
 
-    def test_set_sid_allocates_instance_id(self):
-        self.avcp.set_session_id("123")
-        self.assertTrue(self.avcp.allocate_instance_id.called)
-
-    def test_set_sid_with_none_releases_instance_id(self):
-        self.avcp.set_session_id(None)
-        self.assertTrue(self.avcp.release_instance_id.called)
-
-    def test_set_sid_with_duplicate_raises_error(self):
-        self.avcp.set_session_id("123")
-        self.assertRaises(SessionRejectedError, self.avcp.set_session_id, "456")
-
     def test_play_sets_uri_and_starts_playing(self):
         self.avcp.set_session_id("123")
         self.avcp.play("http://www.example.com/video.avi", 0.1)

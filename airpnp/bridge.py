@@ -29,7 +29,7 @@
 import uuid
 from device import CommandError
 from device_discovery import DeviceDiscoveryService
-from airplayserver import SessionRejectedError, IAirPlayServer
+from airplayserver import IAirPlayServer
 from AirPlayService import AirPlayService
 from upnp import parse_duration, to_duration
 from config import config
@@ -96,6 +96,7 @@ class BridgeServer(DeviceDiscoveryService):
         avc = self.getServiceNamed(device.UDN)
         avc.disownServiceParent()
         self._ports.remove(avc.port)
+        del avc
 
         if self.iweb:
             self.iweb.remove_device(device)
@@ -117,28 +118,23 @@ class AVControlPoint(object):
     _client = None
     _instance_id = None
     _photo = None
-    sid = None
 
     def __init__(self, device, photoweb):
         self._connmgr = device[CN_MGR_SERVICE]
         self._avtransport = device[AVT_SERVICE]
         self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device, msg), ll=ll)
         self._photoweb = photoweb
+        self._instance_id = self.allocate_instance_id()
+    
+    def __del__(self):
+        self.release_instance_id(self._instance_id)
 
     def _log_async(self, value, log_level, msg):
         self.msg(log_level, msg % (value, ))
         return value
 
     def set_session_id(self, sid):
-        if sid and self.sid and self.sid != sid:
-            log.msg("Rejecting session %s since session %s is active"
-                    % (sid, self.sid))
-            raise SessionRejectedError("Another session is active")
-        self.sid = sid
-        if sid is None:
-            self.release_instance_id(self._instance_id)
-        else:
-            self._instance_id = self.allocate_instance_id()
+        pass
 
     def get_scrub(self):
         def parse_posinfo(posinfo):
@@ -237,9 +233,6 @@ class AVControlPoint(object):
             if not self._photo is None:
                 self._photoweb.unpublish(self._photo)
                 self._photo = None
-
-            # clear the sesion ID, so that we can accept another
-            self.set_session_id(None)
 
     def _try_stop(self, retries):
         try:
