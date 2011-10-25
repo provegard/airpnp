@@ -26,13 +26,48 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import inspect
+from config import config
 from bridge import BridgeServer
 from twisted.application.service import Application
 from twisted.internet import protocol
+from twisted.python import log
+
+# Log level if not specified
+DEFAULT_LOG_LEVEL = 1
+
+# Log level for Twisted's log messages
+TWISTED_LOG_LEVEL = 4
+
+def get_calling_module():
+    frm = inspect.stack()[2][0]
+    try:
+        return inspect.getmodule(frm)
+    finally:
+        # http://docs.python.org/library/inspect.html#the-interpreter-stack
+        del frm
+
+def patch_log(oldf):
+    def mylog(*message, **kw):
+        # Get the log level, if any
+        ll = kw.has_key('ll') and kw['ll'] or DEFAULT_LOG_LEVEL
+
+        # Adjust log level for Twisted's messages
+        if get_calling_module().__name__.startswith('twisted.'):
+            ll = TWISTED_LOG_LEVEL
+
+        # Log if level is on or below the configured limit
+        if ll <= config.loglevel():
+            oldf(*message, **kw)
+    return mylog
 
 def tweak_twisted():
+    # Turn off noisiness on some of Twisted's classes
     protocol.AbstractDatagramProtocol.noisy = False
     protocol.Factory.noisy = False
+
+    # Patch logging to introduce log level support
+    log.msg = patch_log(log.msg)
 
 tweak_twisted()
 application = Application('airpnp')

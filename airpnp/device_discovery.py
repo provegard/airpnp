@@ -26,13 +26,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import aplog as log
 from upnp import UpnpBase, MSearchRequest, SoapError, SSDPServer
 from cStringIO import StringIO
 from httplib import HTTPMessage
 from twisted.internet import reactor, defer
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
+from twisted.python import log
 from util import send_soap_message, split_usn, get_max_age, send_soap_message_deferred
 from device_builder import DeviceRejectedError, DeviceBuilder
 
@@ -132,7 +132,7 @@ class DeviceDiscoveryService(MultiService):
             if builder:
                 builder.cancel()
             mgr = self._devices.pop(udn)
-            log.msg(2, 'Device %s expired or said goodbye' % (mgr.device, ))
+            log.msg('Device %s expired or said goodbye' % (mgr.device, ), ll=2)
             mgr.stop()
             self.on_device_removed(mgr.device)
 
@@ -157,23 +157,23 @@ class DeviceDiscoveryService(MultiService):
             d.addCallback(self._device_finished, umessage)
             d.addErrback(self._device_error, udn)
 
-            log.msg(3, "Starting build of device with UDN = %s" % (udn, ))
+            log.msg("Starting build of device with UDN = %s" % (udn, ), ll=3)
             self._builders[udn] = d
 
     def _send_soap_message(self, device, url, msg, async=False, deferred=None):
         """Send a SOAP message and do error handling."""
         try:
-            log.msg(3, 'Sending SOAP message to device %s:\n%s' %
-                    (device, msg.tostring()))
+            log.msg('Sending SOAP message to device %s:\n%s' %
+                    (device, msg.tostring()), ll=3)
             if async:
                 answer = send_soap_message_deferred(url, msg, deferred=deferred)
             else:
                 answer = send_soap_message(url, msg)
-                log.msg(3, 'Got response from device %s:\n%s' % (device,
-                                                                 answer.tostring()))
+                log.msg('Got response from device %s:\n%s' % (device, answer.tostring()),
+                        ll=3)
                 if isinstance(answer, SoapError):
                     # log only, don't raise - assume caller handles the error
-                    log.msg(1, 'Error response for %s command to device %s: %s/%s' %
+                    log.msg('Error response for %s command to device %s: %s/%s' %
                             (msg.get_name(), device, answer.code, answer.desc))
             return answer
         except:
@@ -190,8 +190,8 @@ class DeviceDiscoveryService(MultiService):
             del self._builders[udn]
             if fail.check(DeviceRejectedError):
                 device = fail.value.device
-                log.msg(2, 'Adding device %s to ignore list, because %s' %
-                        (device, fail.getErrorMessage()))
+                log.msg('Adding device %s to ignore list, because %s' %
+                        (device, fail.getErrorMessage()), ll=2)
                 self._ignored.append(udn)
             else:
                 log.err(fail, "Failed to build Device with UDN %s" % (udn, ))
@@ -209,7 +209,7 @@ class DeviceDiscoveryService(MultiService):
 
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
-        log.msg(3, 'Sending out M-SEARCH discovery requests')
+        log.msg('Sending out M-SEARCH discovery requests', ll=3)
         # send two requests to counter UDP unreliability
         reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
         reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)

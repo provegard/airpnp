@@ -26,7 +26,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import aplog as log
 import uuid
 from device import CommandError
 from device_discovery import DeviceDiscoveryService
@@ -39,6 +38,7 @@ from zope.interface import implements
 from twisted.internet import defer
 from twisted.application.internet import TCPServer
 from twisted.web import server, resource, static
+from twisted.python import log
 
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
@@ -77,12 +77,12 @@ class BridgeServer(DeviceDiscoveryService):
         if self.iweb:
             # apparently, logging in __init__ is too early
             iwebport = self.iweb.port
-            log.msg(1, "Starting interactive web at port %d" % (iwebport, ))
+            log.msg("Starting interactive web at port %d" % (iwebport, ))
         DeviceDiscoveryService.startService(self)
 
     def on_device_found(self, device):
-        log.msg(1, 'Found device %s with base URL %s' % (device,
-                                                         device.get_base_url()))
+        log.msg('Found device %s with base URL %s' % (device,
+                                                      device.get_base_url()))
         cpoint = AVControlPoint(device, self.photoweb)
         avc = AirPlayService(cpoint, device.friendlyName, port=self._find_port())
         avc.setName(device.UDN)
@@ -92,7 +92,7 @@ class BridgeServer(DeviceDiscoveryService):
             self.iweb.add_device(device) 
 
     def on_device_removed(self, device):
-        log.msg(1, 'Lost device %s' % (device, ))
+        log.msg('Lost device %s' % (device, ))
         avc = self.getServiceNamed(device.UDN)
         avc.disownServiceParent()
         self._ports.remove(avc.port)
@@ -122,7 +122,7 @@ class AVControlPoint(object):
     def __init__(self, device, photoweb):
         self._connmgr = device[CN_MGR_SERVICE]
         self._avtransport = device[AVT_SERVICE]
-        self.msg = lambda ll, msg: log.msg(ll, '(-> %s) %s' % (device, msg))
+        self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device, msg), ll=ll)
         self._photoweb = photoweb
 
     def _log_async(self, value, log_level, msg):
@@ -131,7 +131,7 @@ class AVControlPoint(object):
 
     def set_session_id(self, sid):
         if sid and self.sid and self.sid != sid:
-            log.msg(1, "Rejecting session %s since session %s is active"
+            log.msg("Rejecting session %s since session %s is active"
                     % (sid, self.sid))
             raise SessionRejectedError("Another session is active")
         self.sid = sid

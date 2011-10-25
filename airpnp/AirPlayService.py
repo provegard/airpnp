@@ -22,12 +22,12 @@
 
 import platform
 import uuid
-import aplog as log
 
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
 from airplayserver import BaseResource, IAirPlayServer
 
+from twisted.python import log
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
 from twisted.web import error, server
@@ -116,7 +116,7 @@ class ScrubResource(BaseResource):
         return d
     
     def late_render_get(self, value):
-        log.msg(2, "late_render_get, value = %r" % (value, ))
+        log.msg("late_render_get, value = %r" % (value, ), ll=2)
         d, p = value
         content = "duration: " + str(float(d))
         content += "\nposition: " + str(float(p))
@@ -227,8 +227,8 @@ class AirPlayService(MultiService):
 
     def startService(self):
         MultiService.startService(self)
-        log.msg(1, "AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
-                                                                self.port))
+        log.msg("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
+                                                             self.port))
     def stopService(self):
-        log.msg(1, "AirPlayService '%s' was stopped" % (self.name_, ))
+        log.msg("AirPlayService '%s' was stopped" % (self.name_, ))
         return MultiService.stopService(self)

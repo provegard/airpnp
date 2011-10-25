@@ -26,9 +26,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import aplog as log
 from twisted.web import resource, server
 from twisted.internet import defer
+from twisted.python import log
 from zope.interface import Interface
 
 __all__ = [
@@ -98,8 +98,8 @@ class BaseResource(resource.Resource):
         self.apserver = IAirPlayServer(apserver)
 
     def render(self, request):
-        log.msg(3, "Got AirPlay request, URI = %s, %r"
-                % (request.uri, request.requestHeaders))
+        log.msg("Got AirPlay request, URI = %s, %r"
+                % (request.uri, request.requestHeaders), ll=3)
         sid = request.getHeader("X-Apple-Session-Id")
         ret = ""
         try:

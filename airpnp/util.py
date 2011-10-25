@@ -28,10 +28,10 @@
 
 import urllib2
 import re
-import aplog as log
 from upnp import SoapMessage, SoapError
 from cStringIO import StringIO
 from twisted.web import client, error, http
+from twisted.python import log
 
 __all__ = [
     'send_soap_message',
@@ -92,8 +92,8 @@ def send_soap_message(url, msg, mpost=False):
         response = SoapMessage.parse(handle)
     except urllib2.HTTPError, err:
         if err.code == 405 and not mpost:
-            log.msg(2, 'Got 405 response in response to SOAP message, trying' +
-                    'the M-POST way')
+            log.msg('Got 405 response in response to SOAP message, trying' +
+                    'the M-POST way', ll=2)
             return send_soap_message(url, msg, True)
         elif err.code == 500:
             # SOAP error
