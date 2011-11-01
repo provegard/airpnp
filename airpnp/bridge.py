@@ -74,6 +74,7 @@ class BridgeServer(DeviceDiscoveryService):
         self.photoweb.setServiceParent(self)
 
     def startService(self):
+        log.msg("Airpnp started. Will now search for UPnP devices!")
         if self.iweb:
             # apparently, logging in __init__ is too early
             iwebport = self.iweb.port
