@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?><root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:ms="urn:microsoft-com:wmc-1-0" xmlns:dlna="urn:schemas-dlna-org:device-1-0" xmlns:pnpx="http://schemas.microsoft.com/windows/pnpx/2005/11" xmlns:df="http://schemas.microsoft.com/windows/2008/09/devicefoundation"><specVersion><major>1</major><minor>0</minor></specVersion><device><pnpx:X_hardwareId>VEN_011A&amp;DEV_0001&amp;REV_01 VEN_0033&amp;DEV_0005&amp;REV_01</pnpx:X_hardwareId><pnpx:X_compatibleId>MS_DigitalMediaDeviceClass_DMR_V001</pnpx:X_compatibleId><pnpx:X_deviceCategory>MediaDevices</pnpx:X_deviceCategory><df:X_deviceCategory>Multimedia.DMR</df:X_deviceCategory><deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType><dlna:X_DLNADOC>DMR-1.50</dlna:X_DLNADOC><friendlyName>WDTVLIVE</friendlyName><manufacturer>Western Digital Corporation</manufacturer><manufacturerURL>http://www.wdc.com</manufacturerURL><modelDescription>WD TV HD Live Media Player</modelDescription><modelName>WD TV HD Live</modelName><modelNumber>WDBAAP</modelNumber><modelURL>http://www.wdtvlive.com/</modelURL>
+<iconList>
+	<icon>
+		<mimetype>image/jpeg</mimetype>
+		<width>48</width>
+		<height>48</height>
+		<depth>24</depth>
+		<url>icon_logo4wmc_48x48.jpg</url>
+	</icon>
+	<icon>
+		<mimetype>image/jpeg</mimetype>
+		<width>120</width>
+		<height>120</height>
+		<depth>24</depth>
+		<url>icon_logo4wmc_120x120.jpg</url>
+	</icon>
+	<icon>
+		<mimetype>image/png</mimetype>
+		<width>48</width>
+		<height>48</height>
+		<depth>24</depth>
+		<url>icon_logo4wmc_48x48.png</url>
+	</icon>
+	<icon>
+		<mimetype>image/png</mimetype>
+		<width>120</width>
+		<height>120</height>
+		<depth>24</depth>
+		<url>icon_logo4wmc_120x120.png</url>
+	</icon>
+</iconList>
+<serialNumber>WNV195115900</serialNumber><UDN>uuid:67ff722f-0090-a976-17db-e9396986c234</UDN><serviceList><service><serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType><serviceId>urn:upnp-org:serviceId:AVTransport</serviceId><SCPDURL>MediaRenderer_AVTransport/scpd.xml</SCPDURL><controlURL>MediaRenderer_AVTransport/control</controlURL><eventSubURL>MediaRenderer_AVTransport/event</eventSubURL></service><service><serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType><serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId><SCPDURL>MediaRenderer_ConnectionManager/scpd.xml</SCPDURL><controlURL>MediaRenderer_ConnectionManager/control</controlURL><eventSubURL>MediaRenderer_ConnectionManager/event</eventSubURL></service><service><serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType><serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId><SCPDURL>MediaRenderer_RenderingControl/scpd.xml</SCPDURL><controlURL>MediaRenderer_RenderingControl/control</controlURL><eventSubURL>MediaRenderer_RenderingControl/event</eventSubURL></service></serviceList><presentationURL>web</presentationURL></device></root>
