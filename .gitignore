@@ -3,4 +3,5 @@
 .project
 .pydevproject
 .settings/
-*.xml
+coverage.xml
+*results.xml
