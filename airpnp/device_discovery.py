@@ -35,6 +35,7 @@ from twisted.application.internet import TimerService
 from twisted.python import log
 from util import *
 from device_builder import DeviceRejectedError, DeviceBuilder
+from config import config
 
 
 # Seconds between m-search discoveries
@@ -214,16 +215,19 @@ class DeviceDiscoveryService(MultiService):
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
         log.msg('Sending out M-SEARCH discovery requests', ll=3)
+        ifs = [config.hostname()]
         # send two requests to counter UDP unreliability
-        reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5)
-        reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5)
+        reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5,
+                          interfaces=ifs)
+        reactor.callLater(1, msearch.send, reactor, 'ssdp:all', 5,
+                          interfaces=ifs)
 
 
 class UpnpService(Service):
 
     def __init__(self, handler):
         self.handler = handler
-        self.interface = '0.0.0.0'
+        self.interface = config.hostname() #TODO
 
     def datagramReceived(self, datagram, address, outip):
         self.handler(datagram, address)
