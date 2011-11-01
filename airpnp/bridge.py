@@ -40,6 +40,7 @@ from twisted.application.internet import TCPServer
 from twisted.web import server, resource, static
 from twisted.python import log
 
+import sys
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
 MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE,
@@ -75,6 +76,7 @@ class BridgeServer(DeviceDiscoveryService):
 
     def startService(self):
         log.msg("Airpnp started. Will now search for UPnP devices!")
+
         if self.iweb:
             # apparently, logging in __init__ is too early
             iwebport = self.iweb.port

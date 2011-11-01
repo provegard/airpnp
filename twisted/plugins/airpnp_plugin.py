@@ -27,11 +27,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import inspect
-from config import config
-from bridge import BridgeServer
-from twisted.application.service import Application
+from zope.interface import implements
+from twisted.application.service import IServiceMaker
 from twisted.internet import protocol
-from twisted.python import log
+from twisted.python import log, usage
+from twisted.plugin import IPlugin
+
+from airpnp.config import config
+from airpnp.bridge import BridgeServer
 
 # Log level if not specified
 DEFAULT_LOG_LEVEL = 1
@@ -46,6 +49,7 @@ def get_calling_module():
     finally:
         # http://docs.python.org/library/inspect.html#the-interpreter-stack
         del frm
+
 
 def patch_log(oldf):
     def mylog(*message, **kw):
@@ -64,6 +68,7 @@ def patch_log(oldf):
             oldf(*message, **nkw)
     return mylog
 
+
 def tweak_twisted():
     # Turn off noisiness on some of Twisted's classes
     protocol.AbstractDatagramProtocol.noisy = False
@@ -72,6 +77,21 @@ def tweak_twisted():
     # Patch logging to introduce log level support
     log.msg = patch_log(log.msg)
 
-tweak_twisted()
-application = Application('airpnp')
-BridgeServer().setServiceParent(application)
+
+class Options(usage.Options):
+    optParameters = [["configfile", "c", "~/.airpnprc", "The path to the Airpnp configuration file."]]
+
+
+class MyServiceMaker(object):
+    implements(IServiceMaker, IPlugin)
+    tapname = "airpnp"
+    description = "AirPlay to UPnP bridge."
+    options = Options
+
+    def makeService(self, options):
+        config.load(options['configfile'])
+        tweak_twisted()
+        return BridgeServer()
+
+
+serviceMaker = MyServiceMaker()

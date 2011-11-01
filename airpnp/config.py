@@ -27,6 +27,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import socket
+import ConfigParser
+import os.path
 
 __all__ = [
     'config'
@@ -41,31 +43,22 @@ DEFAULTS = {
 }
 
 
-def create_config():
-    import ConfigParser
-    import os.path
-
-    rcfile = os.path.expanduser("~/.airpnprc")
-    parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
-    if os.path.isfile(rcfile):
-        parser.read(rcfile)
-
-    # If the file doesn't exist or doesn't have the proper section, we want the
-    # defaults to take effect rather than getting a NoSectionError.
-    if not parser.has_section("airpnp"):
-        parser.add_section("airpnp")
-
-    return Config(parser)
-
-
 class Config(object):
     """Configuration class that exposes the contents of the configuration file
     through methods.
 
     """
 
-    def __init__(self, parser):
-        self._parser = parser
+    def __init__(self):
+        self._parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
+        # If the file doesn't exist or doesn't have the proper section, we want the
+        # defaults to take effect rather than getting a NoSectionError.
+        self._parser.add_section("airpnp")
+
+    def load(self, filename):
+        rcfile = os.path.expanduser(filename)
+        if os.path.isfile(rcfile):
+            self._parser.read(rcfile)
 
     def loglevel(self):
         """Return the configured log level."""
@@ -87,4 +80,5 @@ class Config(object):
 try:
     config
 except NameError:
-    config = create_config()
+    config = Config()
+
