@@ -40,6 +40,7 @@ DEFAULTS = {
     "interactive_web": "no",
     "interactive_web_port": "28080",
     "hostname": socket.getfqdn(),
+    "interface": "0.0.0.0",
 }
 
 
@@ -59,6 +60,14 @@ class Config(object):
         rcfile = os.path.expanduser(filename)
         if os.path.isfile(rcfile):
             self._parser.read(rcfile)
+            self._verify_config()
+
+    def _verify_config(self):
+        import socket
+        try:
+            socket.inet_aton(self.interface())
+        except socket.error:
+            raise ValueError("Not an IP address: " + self.interface())
 
     def loglevel(self):
         """Return the configured log level."""
@@ -76,6 +85,9 @@ class Config(object):
         """Return the host name to use for URLs."""
         return self._parser.get("airpnp", "hostname")
 
+    def interface(self):
+        """Return the interface to use for listening services and outbound connections."""
+        return self._parser.get("airpnp", "interface")
 
 try:
     config

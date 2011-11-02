@@ -57,22 +57,24 @@ class BridgeServer(DeviceDiscoveryService):
 
     _ports = []
 
-    def __init__(self):
-        DeviceDiscoveryService.__init__(self, MEDIA_RENDERER_TYPES,
+    def __init__(self, interface):
+        DeviceDiscoveryService.__init__(self, interface, MEDIA_RENDERER_TYPES,
                                         [MEDIA_RENDERER_DEVICE_TYPE],
                                         REQ_SERVICES)
         
         # optionally add a server for the Interactive Web
         if config.interactive_web_enabled():
             iwebport = config.interactive_web_port()
-            self.iweb = InteractiveWeb(iwebport)
+            self.iweb = InteractiveWeb(iwebport, interface)
             self.iweb.setServiceParent(self)
         else:
             self.iweb = None
 
         # add a server for serving photos to UPnP devices
-        self.photoweb = PhotoWeb(0, 5)
+        self.photoweb = PhotoWeb(0, 5, interface)
         self.photoweb.setServiceParent(self)
+
+        self.interface = interface
 
     def startService(self):
         log.msg("Airpnp started. Will now search for UPnP devices!")
@@ -87,7 +89,7 @@ class BridgeServer(DeviceDiscoveryService):
         log.msg('Found device %s with base URL %s' % (device,
                                                       device.get_base_url()))
         cpoint = AVControlPoint(device, self.photoweb)
-        avc = AirPlayService(cpoint, device.friendlyName, port=self._find_port())
+        avc = AirPlayService(cpoint, device.friendlyName, host=self.interface, port=self._find_port())
         avc.setName(device.UDN)
         avc.setServiceParent(self)
         
@@ -317,9 +319,9 @@ class AVControlPoint(object):
 
 class PhotoWeb(TCPServer):
 
-    def __init__(self, port, backlog):
+    def __init__(self, port, backlog, interface):
         self.root = resource.Resource()
-        TCPServer.__init__(self, port, server.Site(self.root), backlog)
+        TCPServer.__init__(self, port, server.Site(self.root), backlog, interface=interface)
 
     def publish(self, name, content_type, data):
         self.root.putChild(name, static.Data(data, content_type))

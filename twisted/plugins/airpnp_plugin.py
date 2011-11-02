@@ -91,7 +91,7 @@ class MyServiceMaker(object):
     def makeService(self, options):
         config.load(options['configfile'])
         tweak_twisted()
-        return BridgeServer()
+        return BridgeServer(config.interface())
 
 
 serviceMaker = MyServiceMaker()
