@@ -238,9 +238,11 @@ class UpnpService(Service):
         Service.startService(self)
 
         # start ssdp server
+        # Binding to an interface binds to an IP address which won't work
+        # in the multicast case. SO_BINDTODEVICE solves the problem but
+        # it requires root permission.
         self.ssdp = reactor.listenMulticast(UpnpBase.SSDP_PORT,
                                             SSDPServer(self),
-                                            interface=self.interface,
                                             listenMultiple=True)
         self.ssdp.setLoopbackMode(1)
         self.ssdp.joinGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
