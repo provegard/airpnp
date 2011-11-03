@@ -58,9 +58,12 @@ class Config(object):
 
     def load(self, filename):
         rcfile = os.path.expanduser(filename)
+        didload = False
         if os.path.isfile(rcfile):
             self._parser.read(rcfile)
             self._verify_config()
+            didload = True
+        return didload
 
     def _verify_config(self):
         import socket
