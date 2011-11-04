@@ -27,11 +27,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import inspect
-from config import config
-from bridge import BridgeServer
-from twisted.application.service import Application
+from zope.interface import implements
+from twisted.application.service import IServiceMaker, MultiService
 from twisted.internet import protocol
-from twisted.python import log
+from twisted.python import log, usage
+from twisted.plugin import IPlugin
+
+from airpnp.config import config
+from airpnp.bridge import BridgeServer
 
 # Log level if not specified
 DEFAULT_LOG_LEVEL = 1
@@ -47,6 +50,7 @@ def get_calling_module():
         # http://docs.python.org/library/inspect.html#the-interpreter-stack
         del frm
 
+
 def patch_log(oldf):
     def mylog(*message, **kw):
         # Get the log level, if any
@@ -54,7 +58,7 @@ def patch_log(oldf):
 
         # Adjust log level for Twisted's messages
         module = get_calling_module().__name__
-        if module.startswith('twisted.'):
+        if module.startswith('twisted.') and not module == "twisted.plugins.airpnp_plugin":
             ll = TWISTED_LOG_LEVEL
 
         # Log if level is on or below the configured limit
@@ -64,6 +68,7 @@ def patch_log(oldf):
             oldf(*message, **nkw)
     return mylog
 
+
 def tweak_twisted():
     # Turn off noisiness on some of Twisted's classes
     protocol.AbstractDatagramProtocol.noisy = False
@@ -72,6 +77,34 @@ def tweak_twisted():
     # Patch logging to introduce log level support
     log.msg = patch_log(log.msg)
 
-tweak_twisted()
-application = Application('airpnp')
-BridgeServer().setServiceParent(application)
+
+class Options(usage.Options):
+    optParameters = [["configfile", "c", "~/.airpnprc", "The path to the Airpnp configuration file."]]
+
+
+class MainService(MultiService):
+
+    def __init__(self, interface, configfile, configloaded):
+        MultiService.__init__(self)
+        BridgeServer(interface).setServiceParent(self)
+        self.cf = configfile
+        self.cl = configloaded
+
+    def startService(self):
+        log.msg("Configuration file is %s, config loaded = %s" % (self.cf, self.cl))
+        MultiService.startService(self)
+
+
+class MyServiceMaker(object):
+    implements(IServiceMaker, IPlugin)
+    tapname = "airpnp"
+    description = "AirPlay to UPnP bridge."
+    options = Options
+
+    def makeService(self, options):
+        didload = config.load(options['configfile'])
+        tweak_twisted()
+        return MainService(config.interface(), options['configfile'], didload)
+
+
+serviceMaker = MyServiceMaker()

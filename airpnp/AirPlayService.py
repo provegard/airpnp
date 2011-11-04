@@ -196,12 +196,12 @@ class AirPlayService(MultiService):
         self.model = "AppleTV2,1"
 
         # create TCP server
-        TCPServer(port, self.create_site(), 100).setServiceParent(self)
+        TCPServer(port, self.create_site(), 100, interface=host).setServiceParent(self)
 
         # create avahi service
         if (name is None):
             name = "Airplay Service on " + platform.node()
-        zconf = ZeroconfService(name, port=port, stype="_airplay._tcp", text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model])
+        zconf = ZeroconfService(name, host=host, port=port, stype="_airplay._tcp", text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model])
         zconf.setServiceParent(self)
 
         # for logging

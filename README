@@ -72,14 +72,14 @@ If avahi and dbus are not running, then:
     sudo service dbus start
     sudo service avahi-daemon start
 
-To run airpnp, use the twistd runner. Change to the airpnp directory and issue
-the following command:
+To run airpnp, use the twistd runner. From the top-levl directory, issue the
+following command:
 
-    twistd -y airpnp.tac
+    twistd airpnp
 
 To run in the foreground, use the following command:
 
-    twistd -noy airpnp.tac
+    twistd -n airpnp
 
 To run unit tests, run the following from the top-level directory:
 

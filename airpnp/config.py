@@ -27,6 +27,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import socket
+import ConfigParser
+import os.path
 
 __all__ = [
     'config'
@@ -38,24 +40,8 @@ DEFAULTS = {
     "interactive_web": "no",
     "interactive_web_port": "28080",
     "hostname": socket.getfqdn(),
+    "interface": "0.0.0.0",
 }
-
-
-def create_config():
-    import ConfigParser
-    import os.path
-
-    rcfile = os.path.expanduser("~/.airpnprc")
-    parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
-    if os.path.isfile(rcfile):
-        parser.read(rcfile)
-
-    # If the file doesn't exist or doesn't have the proper section, we want the
-    # defaults to take effect rather than getting a NoSectionError.
-    if not parser.has_section("airpnp"):
-        parser.add_section("airpnp")
-
-    return Config(parser)
 
 
 class Config(object):
@@ -64,8 +50,27 @@ class Config(object):
 
     """
 
-    def __init__(self, parser):
-        self._parser = parser
+    def __init__(self):
+        self._parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
+        # If the file doesn't exist or doesn't have the proper section, we want the
+        # defaults to take effect rather than getting a NoSectionError.
+        self._parser.add_section("airpnp")
+
+    def load(self, filename):
+        rcfile = os.path.expanduser(filename)
+        didload = False
+        if os.path.isfile(rcfile):
+            self._parser.read(rcfile)
+            self._verify_config()
+            didload = True
+        return didload
+
+    def _verify_config(self):
+        import socket
+        try:
+            socket.inet_aton(self.interface())
+        except socket.error:
+            raise ValueError("Not an IP address: " + self.interface())
 
     def loglevel(self):
         """Return the configured log level."""
@@ -83,8 +88,12 @@ class Config(object):
         """Return the host name to use for URLs."""
         return self._parser.get("airpnp", "hostname")
 
+    def interface(self):
+        """Return the interface to use for listening services and outbound connections."""
+        return self._parser.get("airpnp", "interface")
 
 try:
     config
 except NameError:
-    config = create_config()
+    config = Config()
+

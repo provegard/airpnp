@@ -53,10 +53,11 @@ class DeviceDiscoveryService(MultiService):
 
     """
 
-    def __init__(self, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
+    def __init__(self, interface, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
         """Initialize the service.
 
         Arguments:
+        interface         -- interface (IP address) for listening services.
         sn_types          -- list of device and/or service types to look for in
                              UPnP notifications and responses; other types will
                              be ignored. "upnp:rootdevice" is automatically
@@ -74,9 +75,10 @@ class DeviceDiscoveryService(MultiService):
         self._sn_types = ['upnp:rootdevice'] + sn_types
         self._dev_types = device_types
         self._req_services = required_services
+        self._interface = interface
 
         # create the UPnP listener service
-        UpnpService(self._datagram_handler).setServiceParent(self)
+        UpnpService(self._datagram_handler, interface).setServiceParent(self)
         
         # create the periodic M-SEARCH request service
         msearch = MSearchRequest(self._datagram_handler)
@@ -215,7 +217,7 @@ class DeviceDiscoveryService(MultiService):
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
         log.msg('Sending out M-SEARCH discovery requests', ll=3)
-        ifs = [config.hostname()]
+        ifs = [self._interface]
         # send two requests to counter UDP unreliability
         reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5,
                           interfaces=ifs)
@@ -225,9 +227,9 @@ class DeviceDiscoveryService(MultiService):
 
 class UpnpService(Service):
 
-    def __init__(self, handler):
+    def __init__(self, handler, interface):
         self.handler = handler
-        self.interface = config.hostname() #TODO
+        self.interface = interface
 
     def datagramReceived(self, datagram, address, outip):
         self.handler(datagram, address)
@@ -236,9 +238,11 @@ class UpnpService(Service):
         Service.startService(self)
 
         # start ssdp server
+        # Binding to an interface binds to an IP address which won't work
+        # in the multicast case. SO_BINDTODEVICE solves the problem but
+        # it requires root permission.
         self.ssdp = reactor.listenMulticast(UpnpBase.SSDP_PORT,
                                             SSDPServer(self),
-                                            interface=self.interface,
                                             listenMultiple=True)
         self.ssdp.setLoopbackMode(1)
         self.ssdp.joinGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
