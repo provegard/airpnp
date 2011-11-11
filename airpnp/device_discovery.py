@@ -63,7 +63,8 @@ class DeviceDiscoveryService(MultiService):
                              be ignored. "upnp:rootdevice" is automatically
                              tracked, and should not be in this list.
         device_types      -- list of interesting device types, used to filter
-                             out devices based on their "deviceType" attribute
+                             out devices based on their "deviceType" attribute.
+                             An empty list means that all types are interesting.
         required_services -- if non-empty, list of services that the device
                              must have for it to be considered
 
@@ -87,7 +88,7 @@ class DeviceDiscoveryService(MultiService):
 
     def _is_device_interesting(self, device):
         # the device must have an approved device type
-        if not device.deviceType in self._dev_types:
+        if len(self._dev_types) > 0 and not device.deviceType in self._dev_types:
             reason = "device type %s is not recognized" % (device.deviceType, )
             return False, reason
 

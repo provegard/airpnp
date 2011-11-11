@@ -81,6 +81,11 @@ To run in the foreground, use the following command:
 
     twistd -n airpnp
 
+To run a UPnP device discovery deamon in the foreground, use the following
+command (uses ~/.airpnprc for configuration):
+
+    twistd -n upnpdisc
+
 To run unit tests, run the following from the top-level directory:
 
     nosetests

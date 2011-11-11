@@ -29,40 +29,37 @@
 import common
 from zope.interface import implements
 from twisted.application.service import IServiceMaker, MultiService
-from twisted.python import log, usage
 from twisted.plugin import IPlugin
+from twisted.python import usage, log
 
 from airpnp.config import config
-from airpnp.bridge import BridgeServer
+from airpnp.device_discovery import DeviceDiscoveryService
 
 
-class Options(usage.Options):
-    optParameters = [["configfile", "c", "~/.airpnprc", "The path to the Airpnp configuration file."]]
+class MainService(DeviceDiscoveryService):
 
+    def __init__(self, interface):
+        DeviceDiscoveryService.__init__(self, interface)
 
-class MainService(MultiService):
+    def on_device_found(self, device):
+        log.msg("Found device %s @ %s" % (device, device.get_base_url()))
+        for service in device:
+            log.msg(" -- service %s of type %s" % (service.serviceId, service.serviceType)) 
 
-    def __init__(self, interface, configfile, configloaded):
-        MultiService.__init__(self)
-        BridgeServer(interface).setServiceParent(self)
-        self.cf = configfile
-        self.cl = configloaded
-
-    def startService(self):
-        log.msg("Configuration file is %s, config loaded = %s" % (self.cf, self.cl))
-        MultiService.startService(self)
+    def on_device_removed(self, device):
+        log.msg("Lost device %s" % (device, ))
 
 
 class MyServiceMaker(object):
     implements(IServiceMaker, IPlugin)
-    tapname = "airpnp"
-    description = "AirPlay to UPnP bridge."
-    options = Options
+    tapname = "upnpdisc"
+    description = "UPnP Device Disocvery."
+    options = usage.Options
 
     def makeService(self, options):
-        didload = config.load(options['configfile'])
+        config.load("~/.airpnprc")
         common.tweak_twisted()
-        return MainService(config.interface(), options['configfile'], didload)
+        return MainService(config.interface())
 
 
 serviceMaker = MyServiceMaker()
