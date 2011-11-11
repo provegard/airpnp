@@ -26,42 +26,40 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os.path
 import common
 from zope.interface import implements
 from twisted.application.service import IServiceMaker, MultiService
-from twisted.python import log, usage
 from twisted.plugin import IPlugin
+from twisted.python import log
 
 from airpnp.config import config
-from airpnp.bridge import BridgeServer
+from airpnp.device_discovery import DeviceDiscoveryService
 
 
-class MainService(MultiService):
+class MainService(DeviceDiscoveryService):
 
-    def __init__(self, ip_addr, if_index, configfile, configloaded):
-        MultiService.__init__(self)
-        BridgeServer((ip_addr, if_index)).setServiceParent(self)
-        self.cf = configfile
-        self.cl = configloaded
+    def __init__(self, ip):
+        DeviceDiscoveryService.__init__(self, ip)
 
-    def startService(self):
-        log.msg("Configuration file is %s, config loaded = %s" % (self.cf, self.cl))
-        log.msg("Using interface %s with IP address %s" %
-                (config.interface_name(), config.interface_ip()))
-        MultiService.startService(self)
+    def on_device_found(self, device):
+        log.msg("Found device %s @ %s" % (device, device.get_base_url()))
+        for service in device:
+            log.msg(" -- service %s of type %s" % (service.serviceId, service.serviceType)) 
+
+    def on_device_removed(self, device):
+        log.msg("Lost device %s" % (device, ))
 
 
 class MyServiceMaker(object):
     implements(IServiceMaker, IPlugin)
-    tapname = "airpnp"
-    description = "AirPlay to UPnP bridge."
+    tapname = "upnpdisc"
+    description = "UPnP Device Disocvery."
     options = common.Options
 
     def makeService(self, options):
-        didload = common.loadconfig(options)
+        common.loadconfig(options)
         common.tweak_twisted()
-        return MainService(config.interface_ip(), config.interface_index(), options['configfile'], didload)
+        return MainService(config.interface_ip())
 
-    
+
 serviceMaker = MyServiceMaker()

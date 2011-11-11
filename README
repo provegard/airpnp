@@ -90,6 +90,10 @@ To use a different configuration file than ~/.airpnprc:
 
     twistd airpnp -c /path/to/config
 
+To run a UPnP device discovery deamon in the foreground, use the following
+command (uses ~/.airpnprc for configuration):
+
+    twistd -n upnpdisc
 
 Running tests
 -------------
