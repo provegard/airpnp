@@ -94,7 +94,7 @@ class DeviceBuilder(object):
             d.addCallback(self._init_service, service)
             return d
         dl = [start_init_service(s) for s in device]
-        return defer.DeferredList(dl)
+        return defer.DeferredList(dl, fireOnOneErrback=True)
 
     def build(self, location):
         """Build a Device object from a remote location.
@@ -123,6 +123,13 @@ class DeviceBuilder(object):
 
         # initialize services
         d.addCallback(self._init_services)
+
+        # error handling for the service initialization
+        def reraise(failure):
+            if failure.type == defer.FirstError:
+                failure = failure.value.subFailure
+            failure.raiseException()
+        d.addErrback(reraise)
 
         # make sure the Device object is returned
         d.addCallback(self._get_device)
