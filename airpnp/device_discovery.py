@@ -33,6 +33,7 @@ from twisted.internet import reactor, defer
 from twisted.application.service import Service, MultiService
 from twisted.application.internet import TimerService
 from twisted.python import log
+from twisted.web import error
 from util import *
 from device_builder import DeviceRejectedError, DeviceBuilder
 
@@ -191,14 +192,19 @@ class DeviceDiscoveryService(MultiService):
 
     def _device_error(self, fail, udn):
         """Handle error that occurred when building a device."""
-        # Remove the device so that we retry it on the next notify
-        # or m-search result.
         if not fail.check(defer.CancelledError):
             del self._builders[udn]
             if fail.check(DeviceRejectedError):
                 device = fail.value.device
                 log.msg('Adding device %s to ignore list, because %s' %
                         (device, fail.getErrorMessage()), ll=2)
+                self._ignored.append(udn)
+            elif fail.check(error.Error):
+                if hasattr(fail, 'url'):
+                    msg = "%s when fetching %s" % (str(fail.value), fail.url)
+                else:
+                    msg = str(fail.value)
+                log.msg('Adding UDN %s to ignore list, because %s' % (udn, msg), ll=2)
                 self._ignored.append(udn)
             else:
                 log.err(fail, "Failed to build Device with UDN %s" % (udn, ))

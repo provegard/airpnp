@@ -61,3 +61,30 @@ class TestDeviceBuilder(unittest.TestCase):
         # A pretty arbitrary assertion on the Device object
         self.assertEqual(actual.result.friendlyName, "pyupnp sample")
 
+    def test_failure_from_builder_contains_url(self, pageMock):
+        pageMock.return_value = defer.fail(error.Error(http.NOT_FOUND, 'Not Found', 'Not Found'))
+        builder = DeviceBuilder(Mock(), lambda x: (True, None))
+        actual = builder.build('http://www.dummy.com')
+
+        err = [None]
+        actual.addErrback(lambda x: err.__setitem__(0, x))
+
+        self.assertEqual(err[0].url, 'http://www.dummy.com')
+
+    def test_failure_from_builder_contains_url_when_service_fetching_fails(self, pageMock):
+        def fetch(*args, **kw):
+            def fetch2(*args, **kw):
+                # second time: 404 Not Found
+                return defer.fail(error.Error(http.NOT_FOUND, 'Not Found', 'Not Found'))
+            pageMock.side_effect = fetch2
+            # first time: return document
+            return defer.succeed(readall('ms.xml'))
+        pageMock.side_effect = fetch
+        builder = DeviceBuilder(Mock(), lambda x: (True, None))
+        actual = builder.build('http://www.dummy.com')
+
+        err = [None]
+        actual.addErrback(lambda x: err.__setitem__(0, x))
+
+        self.assertEqual(err[0].url, 'http://www.dummy.com/cds.xml')
+

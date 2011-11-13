@@ -46,6 +46,17 @@ class DeviceRejectedError(Exception):
         Exception.__init__(self, *args)
 
 
+def reraise_with_url(failure, url):
+    # "unpack" from DeferredList, if applicable
+    if failure.type == defer.FirstError:
+        failure = failure.value.subFailure
+    # allow the caller to know the URL that caused the failure
+    if not hasattr(failure, "url"):
+        failure.url = url
+    # re-raise
+    failure.raiseException()
+
+
 class DeviceBuilder(object):
     """Device builder that builds a Device object from a remote location.
 
@@ -90,6 +101,7 @@ class DeviceBuilder(object):
     def _init_services(self, device):
         def start_init_service(service):
             d = client.getPage(service.SCPDURL, timeout=5)
+            d.addErrback(reraise_with_url, service.SCPDURL)
             d.addCallback(ET.fromstring)
             d.addCallback(self._init_service, service)
             return d
@@ -125,11 +137,7 @@ class DeviceBuilder(object):
         d.addCallback(self._init_services)
 
         # error handling for the service initialization
-        def reraise(failure):
-            if failure.type == defer.FirstError:
-                failure = failure.value.subFailure
-            failure.raiseException()
-        d.addErrback(reraise)
+        d.addErrback(reraise_with_url, location)
 
         # make sure the Device object is returned
         d.addCallback(self._get_device)
