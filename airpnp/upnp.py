@@ -108,6 +108,24 @@ register_namespace(ET, 'dc', ns.dc)
 register_namespace(ET, 'upnp', ns.upnp)
 register_namespace(ET, 'dlna', ns.dlna)
 
+# patch for attributes outside of namespaces
+def parse_attrns(file):
+    events = ("start", )
+    root = None
+    for event, elem in ET.iterparse(file, events):
+        if event == "start":
+            if root is None:
+                root = elem
+            if elem.tag.find("}") < 0:
+                continue
+            uri, name = elem.tag[1:].rsplit("}", 1)
+            for k, v in elem.attrib.items():
+                if k[:1] != "{":
+                    del elem.attrib[k]
+                    k = "{%s}%s" % (uri, k)
+                    elem.attrib[k] = v
+    return ET.ElementTree(root)
+
 def toxpath(path, default_ns=None, nsmap=nsmap):
     nodes = []
     pref = '{%s}' % default_ns if default_ns else ''
@@ -341,7 +359,7 @@ class UpnpDevice(object):
 
             # SCPDURL
             scpdurl = service.find(xp('SCPDURL'))
-            self.services[sid] = ET.parse(os.path.join(xml_dir, scpdurl.text))
+            self.services[sid] = parse_attrns(os.path.join(xml_dir, scpdurl.text))
             scpdurl.text = self.make_upnp_path(sid)
 
             # controlURL
@@ -423,7 +441,7 @@ class UpnpDevice(object):
         return packets
 
     def __call__(self, environ, start_response):
-        print environ
+        #print environ
         rargs = environ['wsgiorg.routing_args'][1]
         udn = rargs.get('udn', None)
         action = rargs.get('action', None)
