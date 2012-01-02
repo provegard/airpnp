@@ -53,11 +53,11 @@ class DeviceDiscoveryService(MultiService):
 
     """
 
-    def __init__(self, interface, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
+    def __init__(self, ip_addr, sn_types=[], device_types=[], required_services=[]): # pylint: disable-msg=W0102
         """Initialize the service.
 
         Arguments:
-        interface         -- interface (IP address) for listening services.
+        ip_addr           -- IP address for listening services.
         sn_types          -- list of device and/or service types to look for in
                              UPnP notifications and responses; other types will
                              be ignored. "upnp:rootdevice" is automatically
@@ -75,10 +75,10 @@ class DeviceDiscoveryService(MultiService):
         self._sn_types = ['upnp:rootdevice'] + sn_types
         self._dev_types = device_types
         self._req_services = required_services
-        self._interface = interface
+        self._ip_addr = ip_addr
 
         # create the UPnP listener service
-        UpnpService(self._datagram_handler, interface).setServiceParent(self)
+        UpnpService(self._datagram_handler, ip_addr).setServiceParent(self)
         
         # create the periodic M-SEARCH request service
         msearch = MSearchRequest(self._datagram_handler)
@@ -217,7 +217,7 @@ class DeviceDiscoveryService(MultiService):
     def _msearch_discover(self, msearch):
         """Send M-SEARCH device discovery requests."""
         log.msg('Sending out M-SEARCH discovery requests', ll=3)
-        ifs = [self._interface]
+        ifs = [self._ip_addr]
         # send two requests to counter UDP unreliability
         reactor.callLater(0, msearch.send, reactor, 'ssdp:all', 5,
                           interfaces=ifs)
@@ -227,9 +227,9 @@ class DeviceDiscoveryService(MultiService):
 
 class UpnpService(Service):
 
-    def __init__(self, handler, interface):
+    def __init__(self, handler, ip_addr):
         self.handler = handler
-        self.interface = interface
+        self.ip_addr = ip_addr
 
     def datagramReceived(self, datagram, address, outip):
         self.handler(datagram, address)
@@ -245,11 +245,11 @@ class UpnpService(Service):
                                             SSDPServer(self),
                                             listenMultiple=True)
         self.ssdp.setLoopbackMode(1)
-        self.ssdp.joinGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
+        self.ssdp.joinGroup(UpnpBase.SSDP_ADDR, interface=self.ip_addr)
 
     def stopService(self):
         # stop ssdp server
-        self.ssdp.leaveGroup(UpnpBase.SSDP_ADDR, interface=self.interface)
+        self.ssdp.leaveGroup(UpnpBase.SSDP_ADDR, interface=self.ip_addr)
         self.ssdp.stopListening()
 
         Service.stopService(self)

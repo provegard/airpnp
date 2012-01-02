@@ -26,9 +26,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import socket
 import ConfigParser
-import os.path
 
 __all__ = [
     'config'
@@ -39,8 +37,7 @@ DEFAULTS = {
     "loglevel": "1",
     "interactive_web": "no",
     "interactive_web_port": "28080",
-    "hostname": socket.getfqdn(),
-    "interface": "0.0.0.0",
+    "interface": "",
 }
 
 
@@ -50,27 +47,31 @@ class Config(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, network_interfaces, outip):
         self._parser = ConfigParser.SafeConfigParser(defaults=DEFAULTS)
         # If the file doesn't exist or doesn't have the proper section, we want the
         # defaults to take effect rather than getting a NoSectionError.
         self._parser.add_section("airpnp")
+        self._nifs = network_interfaces
+        self._outip = outip
+        self._init_network_config() # default values
 
-    def load(self, filename):
-        rcfile = os.path.expanduser(filename)
-        didload = False
-        if os.path.isfile(rcfile):
-            self._parser.read(rcfile)
-            self._verify_config()
-            didload = True
-        return didload
+    def load(self, fileobj):
+        """Load configuration from the given file-like object. The file must be in
+        ConfigParser format."""
+        self._parser.readfp(fileobj)
+        self._init_network_config()
 
-    def _verify_config(self):
-        import socket
-        try:
-            socket.inet_aton(self.interface())
-        except socket.error:
-            raise ValueError("Not an IP address: " + self.interface())
+    def _init_network_config(self):
+        iface = self._parser.get("airpnp", "interface")
+        if not iface:
+            # automatic detection
+            iface = self._outip
+        matches = [ni for ni in self._nifs if iface in ni.addresses.values()
+                   or ni.name == iface]
+        if len(matches) != 1:
+            raise ValueError("Unrecognized interface option: %s" % iface)
+        self._ni = matches[0]
 
     def loglevel(self):
         """Return the configured log level."""
@@ -84,16 +85,28 @@ class Config(object):
         """Return the port to use for interactive web."""
         return self._parser.getint("airpnp", "interactive_web_port")
 
-    def hostname(self):
-        """Return the host name to use for URLs."""
-        return self._parser.get("airpnp", "hostname")
+    def interface_ip(self):
+        """Return the IP address of the interface to use for listening services 
+        and outbound connections."""
+        import socket
+        return self._ni.addresses[socket.AF_INET]
 
-    def interface(self):
-        """Return the interface to use for listening services and outbound connections."""
-        return self._parser.get("airpnp", "interface")
+    def interface_name(self):
+        """Return the name of the interface to use for listening services and
+        outbound connections."""
+        return self._ni.name
+
+    def interface_index(self):
+        """Return the index of the interface to use for listening services and
+        outbound connections."""
+        return self._ni.index
+
 
 try:
     config
 except NameError:
-    config = Config()
+    import getnifs
+    import upnp
+    outip = upnp.get_outip(upnp.UpnpBase.SSDP_ADDR) # IP address
+    config = Config(getnifs.get_network_interfaces(), outip)
 

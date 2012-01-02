@@ -25,13 +25,14 @@ from twisted.application.service import Service
 __all__ = ["ZeroconfService"]
 
 class ZeroconfService(Service):
-    def __init__(self, name, port, stype="_http._tcp", domain="", host="", text=""):
+    def __init__(self, name, port, stype="_http._tcp", domain="", host="", text="", index=-1):
         self.name = name
         self.stype = stype
         self.domain = domain
         self.host = host
         self.port = port
         self.text = text
+        self.index = index
 
     def startService(self):
         import avahi
@@ -41,8 +42,11 @@ class ZeroconfService(Service):
         bus = dbus.SystemBus()
         server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
 
+        # perhaps a bit unnecessary, but just to be on the safe side...
+        index = avahi.IF_UNSPEC if self.index == -1 else self.index
+
         g = dbus.Interface(bus.get_object(avahi.DBUS_NAME, server.EntryGroupNew()), avahi.DBUS_INTERFACE_ENTRY_GROUP)
-        g.AddService(avahi.IF_UNSPEC, avahi.PROTO_UNSPEC, dbus.UInt32(0), self.name, self.stype, self.domain, self.host, dbus.UInt16(self.port), avahi.string_array_to_txt_array(self.text))
+        g.AddService(index, avahi.PROTO_UNSPEC, dbus.UInt32(0), self.name, self.stype, self.domain, self.host, dbus.UInt16(self.port), avahi.string_array_to_txt_array(self.text))
 
         g.Commit()
         self.group = g

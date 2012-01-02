@@ -27,6 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import inspect
+import os.path
 from zope.interface import implements
 from twisted.application.service import IServiceMaker, MultiService
 from twisted.internet import protocol
@@ -84,14 +85,16 @@ class Options(usage.Options):
 
 class MainService(MultiService):
 
-    def __init__(self, interface, configfile, configloaded):
+    def __init__(self, ip_addr, if_index, configfile, configloaded):
         MultiService.__init__(self)
-        BridgeServer(interface).setServiceParent(self)
+        BridgeServer((ip_addr, if_index)).setServiceParent(self)
         self.cf = configfile
         self.cl = configloaded
 
     def startService(self):
         log.msg("Configuration file is %s, config loaded = %s" % (self.cf, self.cl))
+        log.msg("Using interface %s with IP address %s" %
+                (config.interface_name(), config.interface_ip()))
         MultiService.startService(self)
 
 
@@ -102,9 +105,17 @@ class MyServiceMaker(object):
     options = Options
 
     def makeService(self, options):
-        didload = config.load(options['configfile'])
+        didload = self.loadconfig(options)
         tweak_twisted()
-        return MainService(config.interface(), options['configfile'], didload)
-
+        return MainService(config.interface_ip(), config.interface_index(), options['configfile'], didload)
+    
+    def loadconfig(self, options):
+        rcfile = os.path.expanduser(options['configfile'])
+        didload = False
+        if os.path.isfile(rcfile):
+            with open(rcfile) as fd:
+                config.load(fd)
+                didload = True
+        return didload
 
 serviceMaker = MyServiceMaker()

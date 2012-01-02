@@ -1,9 +1,20 @@
 import unittest
-import sys
 import socket
-from airpnp.config import *
-from mock import patch
+from airpnp.config import Config
+from airpnp.getnifs import NetworkInterface
 from cStringIO import StringIO
+
+
+def fake_network_interfaces():
+    lo = NetworkInterface("lo", 1)
+    lo.addresses[socket.AF_INET] = "127.0.0.1"
+    eth0 = NetworkInterface("eth0", 2)
+    eth0.addresses[socket.AF_INET] = "10.10.10.1"
+    return [lo, eth0]
+
+
+def fake_outip():
+    return "10.10.10.1"
 
 
 class TestConfig(unittest.TestCase):
@@ -16,38 +27,35 @@ class TestConfig(unittest.TestCase):
         return _rl
 
     def setUp(self):
-        # clear the config
-        config.__init__()
+        self.config = Config(fake_network_interfaces(), fake_outip())
     
     def test_config_option_default(self):
-        self.assertEqual(1, config.loglevel())
+        self.assertEqual(1, self.config.loglevel())
 
-    def test_hostname_defaults_to_fqdn(self):
-        self.assertEqual(socket.getfqdn(), config.hostname())
+    def test_read_config_option(self):
+        self.config.load(StringIO("[airpnp]\nloglevel=4\n"))
+        self.assertEqual(4, self.config.loglevel())
 
-    @patch('__builtin__.open')
-    def test_read_config_option(self, open_mock):
-        open_mock.return_value.readline.side_effect = self.rl(["[airpnp]", "loglevel=4"])
-        config.load(__file__)
-        self.assertEqual(4, config.loglevel())
+    def test_interface_ip_defaults_to_outip(self):
+        self.assertEqual("10.10.10.1", self.config.interface_ip())
 
-    @patch('__builtin__.open')
-    def test_nonexistent_file_is_ignored_on_read(self, open_mock):
-        open_mock.return_value.readline.side_effect = self.rl(["[airpnp]", "loglevel=4"])
-        config.load("nosuchfile")
-        self.assertEqual(1, config.loglevel())
+    def test_read_interface_ip_from_config(self):
+        self.config.load(StringIO("[airpnp]\ninterface=127.0.0.1\n"))
+        self.assertEqual("127.0.0.1", self.config.interface_ip())
 
-    def test_interface_defaults_to_0000(self):
-        self.assertEqual("0.0.0.0", config.interface())
+    def test_read_interface_name_from_config(self):
+        self.config.load(StringIO("[airpnp]\ninterface=lo\n"))
+        self.assertEqual("127.0.0.1", self.config.interface_ip())
 
-    @patch('__builtin__.open')
-    def test_read_interface_from_config(self, open_mock):
-        open_mock.return_value.readline.side_effect = self.rl(["[airpnp]", "interface=127.0.0.1"])
-        config.load(__file__)
-        self.assertEqual("127.0.0.1", config.interface())
+    def test_get_interface_name_from_config(self):
+        self.config.load(StringIO("[airpnp]\ninterface=127.0.0.1\n"))
+        self.assertEqual("lo", self.config.interface_name())
 
-    @patch('__builtin__.open')
-    def test_interface_must_be_ip_address(self, open_mock):
-        open_mock.return_value.readline.side_effect = self.rl(["[airpnp]", "interface=xyzvv"])
-        self.assertRaises(ValueError, config.load, __file__)
+    def test_get_interface_index_from_config(self):
+        self.config.load(StringIO("[airpnp]\ninterface=127.0.0.1\n"))
+        self.assertEqual(1, self.config.interface_index())
+
+    def test_interface_must_be_ip_or_name(self):
+        fileobj = StringIO("[airpnp]\ninterface=xyz\n")
+        self.assertRaises(ValueError, self.config.load, fileobj)
 

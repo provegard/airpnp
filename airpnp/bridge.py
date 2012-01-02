@@ -55,23 +55,23 @@ REQ_SERVICES = [CN_MGR_SERVICE, AVT_SERVICE]
 
 class BridgeServer(DeviceDiscoveryService):
 
-    _ports = []
-
     def __init__(self, interface):
-        DeviceDiscoveryService.__init__(self, interface, MEDIA_RENDERER_TYPES,
+        DeviceDiscoveryService.__init__(self, interface[0], MEDIA_RENDERER_TYPES,
                                         [MEDIA_RENDERER_DEVICE_TYPE],
                                         REQ_SERVICES)
+
+        self._ports = []
         
         # optionally add a server for the Interactive Web
         if config.interactive_web_enabled():
             iwebport = config.interactive_web_port()
-            self.iweb = InteractiveWeb(iwebport, interface)
+            self.iweb = InteractiveWeb(iwebport, interface[0])
             self.iweb.setServiceParent(self)
         else:
             self.iweb = None
 
         # add a server for serving photos to UPnP devices
-        self.photoweb = PhotoWeb(0, 5, interface)
+        self.photoweb = PhotoWeb(0, 5, interface[0])
         self.photoweb.setServiceParent(self)
 
         self.interface = interface
@@ -89,7 +89,7 @@ class BridgeServer(DeviceDiscoveryService):
         log.msg('Found device %s with base URL %s' % (device,
                                                       device.get_base_url()))
         cpoint = AVControlPoint(device, self.photoweb)
-        avc = AirPlayService(cpoint, device.friendlyName, host=self.interface, port=self._find_port())
+        avc = AirPlayService(cpoint, device.friendlyName, host=self.interface[0], port=self._find_port(), index=self.interface[1])
         avc.setName(device.UDN)
         avc.setServiceParent(self)
         
@@ -319,9 +319,9 @@ class AVControlPoint(object):
 
 class PhotoWeb(TCPServer):
 
-    def __init__(self, port, backlog, interface):
+    def __init__(self, port, backlog, ip_addr):
         self.root = resource.Resource()
-        TCPServer.__init__(self, port, server.Site(self.root), backlog, interface=interface)
+        TCPServer.__init__(self, port, server.Site(self.root), backlog, interface=ip_addr)
 
     def publish(self, name, content_type, data):
         self.root.putChild(name, static.Data(data, content_type))

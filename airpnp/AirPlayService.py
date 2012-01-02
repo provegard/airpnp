@@ -183,7 +183,7 @@ class SlideshowFeaturesResource(BaseResource):
 
 class AirPlayService(MultiService):
 
-    def __init__(self, apserver, name=None, host="0.0.0.0", port=22555):
+    def __init__(self, apserver, name=None, host="0.0.0.0", port=22555, index=-1):
         MultiService.__init__(self)
 
         self.apserver = IAirPlayServer(apserver)
@@ -201,7 +201,9 @@ class AirPlayService(MultiService):
         # create avahi service
         if (name is None):
             name = "Airplay Service on " + platform.node()
-        zconf = ZeroconfService(name, host=host, port=port, stype="_airplay._tcp", text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model])
+        zconf = ZeroconfService(name, port=port, stype="_airplay._tcp", 
+                                text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model],
+                                index=index)
         zconf.setServiceParent(self)
 
         # for logging

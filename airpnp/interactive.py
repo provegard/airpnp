@@ -32,11 +32,11 @@ from twisted.application.internet import TCPServer
 
 class InteractiveWeb(TCPServer):
 
-    def __init__(self, port, interface):
+    def __init__(self, port, ip_addr):
         self.root = self.create_site()
         self.port = port
 
-        TCPServer.__init__(self, port, server.Site(self.root), 100, interface=interface)
+        TCPServer.__init__(self, port, server.Site(self.root), 100, interface=ip_addr)
 
     def add_device(self, device):
         devroot = self.create_device_site(device)
