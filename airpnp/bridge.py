@@ -33,6 +33,7 @@ from airplayserver import IAirPlayServer
 from AirPlayService import AirPlayService
 from upnp import parse_duration, to_duration
 from config import config
+from util import get_image_type
 from interactive import InteractiveWeb
 from zope.interface import implements
 from twisted.internet import defer
@@ -88,7 +89,7 @@ class BridgeServer(DeviceDiscoveryService):
     def on_device_found(self, device):
         log.msg('Found device %s with base URL %s' % (device,
                                                       device.get_base_url()))
-        cpoint = AVControlPoint(device, self.photoweb)
+        cpoint = AVControlPoint(device, self.photoweb, self.interface[0])
         avc = AirPlayService(cpoint, device.friendlyName, host=self.interface[0], port=self._find_port(), index=self.interface[1])
         avc.setName(device.UDN)
         avc.setServiceParent(self)
@@ -124,12 +125,13 @@ class AVControlPoint(object):
     _instance_id = None
     _photo = None
 
-    def __init__(self, device, photoweb):
+    def __init__(self, device, photoweb, ip_addr):
         self._connmgr = device[CN_MGR_SERVICE]
         self._avtransport = device[AVT_SERVICE]
         self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device.friendlyName, msg), ll=ll)
         self._photoweb = photoweb
         self._instance_id = self.allocate_instance_id()
+        self._ip_addr = ip_addr
     
     def __del__(self):
         self.release_instance_id(self._instance_id)
@@ -289,7 +291,7 @@ class AVControlPoint(object):
         self._photo = name
 
         # create the URI
-        hostname = config.hostname()
+        hostname = self._ip_addr
         uri = "http://%s:%d/%s" % (hostname, self._photoweb.port, name)
 
         self.msg(1, "Showing photo, published at %s" % (uri, ))

@@ -18,7 +18,7 @@ class TestAVControlPoint(unittest.TestCase):
                 raise ValueError("Unknown id: " + id)
         device = mock.MagicMock()
         device.__getitem__ = mock.Mock(side_effect=gsbyid)
-        self.avcp = AVControlPoint(device, None)
+        self.avcp = AVControlPoint(device, None, "127.0.0.1")
 
         # mock away instance ID business since these methods check for 
         # attributes that will be auto-added by the mock service.
