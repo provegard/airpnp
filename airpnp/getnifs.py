@@ -36,10 +36,9 @@ from socket import AF_INET, AF_INET6, inet_ntop
 from ctypes import (
     Structure, Union, POINTER,
     pointer, get_errno, cast,
-    c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_int, c_uint16, c_uint32
+    c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_uint16, c_uint32
 )
 import ctypes.util
-import ctypes
 
 class struct_sockaddr(Structure):
     _fields_ = [

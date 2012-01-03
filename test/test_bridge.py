@@ -1,7 +1,6 @@
 import unittest
 import mock
 from airpnp.bridge import AVControlPoint
-from airpnp.airplayserver import SessionRejectedError
 
 
 class TestAVControlPoint(unittest.TestCase):

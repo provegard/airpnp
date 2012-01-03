@@ -41,7 +41,7 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.threads import blockingCallFromThread
 from twisted.python.threadpool import ThreadPool
 from twisted.python.threadable import isInIOThread
-from twisted.web import server, resource, wsgi, static
+from twisted.web import server, wsgi, static
 
 
 __all__ = [
@@ -357,7 +357,7 @@ class UpnpDevice(object):
     def make_upnp_path(self, sid=None, action='desc'):
         kwargs = {'controller': 'upnp', 'action': action, 'udn': self.udn}
         if sid != None:
-          kwargs['sid'] = sid
+            kwargs['sid'] = sid
         return self.mapper.generate(**kwargs)
 
     def make_location(self, ip, port_num):
@@ -1075,57 +1075,3 @@ def to_duration(sec):
     if sec < 0.0:
         return '-' + to_npt(abs(sec))
     return to_npt(sec)
-
-
-def _test():
-    import doctest
-    doctest.testmod()
-
-
-if __name__ == '__main__':
-    _test()
-
-    from sys import argv
-    from uuid import uuid1
-    from optparse import OptionParser
-    from twisted.internet import reactor
-    from pkg_resources import resource_filename
-
-    def soap_app(environ, start_response):
-        sid = environ['wsgiorg.routing_args'][1]['sid']
-        serviceType = environ['upnp.soap.serviceType']
-        action = environ['upnp.soap.action']
-        req = SoapMessage.parse(StringIO(environ['upnp.body']), serviceType, action)
-
-        print action + ' from ' + environ['REMOTE_ADDR']
-        print '\t' + sid
-        print '\t' + serviceType
-        print '\t' + str(req.get_args())
-
-        return not_found(environ, start_response)
-
-    resource_filename(__name__, 'xml/cds.xml')
-    resource_filename(__name__, 'xml/cms.xml')
-
-    # parse options
-    parser = OptionParser(usage='%prog [options]')
-    default_udn = 'uuid:00000000-0000-0000-001122334455'
-    #default_udn = 'uuid:' + str(uuid1())
-    parser.add_option('-u', '--udn', dest='udn', default=default_udn)
-    parser.add_option('-d', '--desc', dest='desc', default='xml/ms.xml')
-    options, args = parser.parse_args(argv)
-
-    dd = resource_filename(__name__, options.desc)
-    device = UpnpDevice(options.udn, dd, soap_app)
-    base = UpnpBase()
-    base.append_device([device])
-    base.start(reactor)
-
-    def stop():
-        base.remove_device(device.udn)
-        base.stop()
-        reactor.stop()
-
-    reactor.callLater(15, stop)
-    reactor.run()
-

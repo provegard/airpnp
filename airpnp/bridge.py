@@ -41,8 +41,6 @@ from twisted.application.internet import TCPServer
 from twisted.web import server, resource, static
 from twisted.python import log
 
-import sys
-
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
 MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE,
                         'urn:schemas-upnp-org:service:AVTransport:1',

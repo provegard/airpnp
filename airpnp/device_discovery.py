@@ -35,7 +35,6 @@ from twisted.application.internet import TimerService
 from twisted.python import log
 from util import *
 from device_builder import DeviceRejectedError, DeviceBuilder
-from config import config
 
 
 # Seconds between m-search discoveries
