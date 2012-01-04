@@ -1,6 +1,7 @@
 import unittest
 import mock
 from airpnp.bridge import AVControlPoint
+from twisted.internet import defer
 
 
 class TestAVControlPoint(unittest.TestCase):
@@ -38,7 +39,7 @@ class TestAVControlPoint(unittest.TestCase):
         playing = self.avcp.is_playing().result
         self.assertEqual(playing, False)
 
-    def test_play_sets_uri_and_starts_playing(self):
+    def test_play_sets_uri_without_starting_to_play(self):
         self.avcp.set_session_id("123")
         self.avcp.play("http://www.example.com/video.avi", 0.1)
 
@@ -46,25 +47,63 @@ class TestAVControlPoint(unittest.TestCase):
             InstanceID="0",
             CurrentURI="http://www.example.com/video.avi",
             CurrentURIMetaData="")
-        self.avtransport.Play.assert_called_with(InstanceID="0", Speed="1")
+        self.assertFalse(self.avtransport.Play.called)
 
-    def test_play_doesnt_seek_without_preset_scrub(self):
+    def test_get_scrub_seeks_to_stored_play_position_if_duration_is_known(self):
         self.avcp.set_session_id("123")
+        # to store position (pct)
         self.avcp.play("http://www.example.com/video.avi", 0.1)
+
+        pos = {"TrackDuration": "0:01:40", "RelTime": "0:00:00"}
+        self.avtransport.GetPositionInfo.return_value = defer.succeed(pos)
+
+        self.avcp.get_scrub()
+
+        self.avtransport.Seek.assert_called_with(
+            InstanceID="0",
+            Unit="REL_TIME",
+            Target="0:00:10.000")
+
+    def test_get_scrub_seeks_to_stored_play_position_if_duration_is_known_only_once(self):
+        self.avcp.set_session_id("123")
+        # to store position (pct)
+        self.avcp.play("http://www.example.com/video.avi", 0.1)
+
+        pos = {"TrackDuration": "0:01:40", "RelTime": "0:00:00"}
+        self.avtransport.GetPositionInfo.return_value = defer.succeed(pos)
+
+        self.avcp.get_scrub()
+        self.avcp.get_scrub()
+
+        self.assertEqual(1, self.avtransport.Seek.call_count)
+
+    def test_get_scrub_doesnt_seek_to_stored_play_position_if_current_position_is_greater(self):
+        self.avcp.set_session_id("123")
+        # to store position (pct)
+        self.avcp.play("http://www.example.com/video.avi", 0.1)
+
+        pos = {"TrackDuration": "0:01:40", "RelTime": "0:00:11"}
+        self.avtransport.GetPositionInfo.return_value = defer.succeed(pos)
+
+        self.avcp.get_scrub()
+
+        self.assertFalse(self.avtransport.Seek.called)
+
+    def test_get_scrub_doesnt_seek_to_stored_play_position_if_duration_is_unknown(self):
+        self.avcp.set_session_id("123")
+        # to store position (pct)
+        self.avcp.play("http://www.example.com/video.avi", 0.1)
+
+        pos = {"TrackDuration": "0:00:00", "RelTime": "0:00:00"}
+        self.avtransport.GetPositionInfo.return_value = defer.succeed(pos)
+
+        self.avcp.get_scrub()
+
         self.assertFalse(self.avtransport.Seek.called)
 
     def test_set_scrub_doesnt_seek_without_uri(self):
         self.avcp.set_scrub(5.0)
         self.assertFalse(self.avtransport.Seek.called)
-
-    def test_play_seeks_with_preset_scrub(self):
-        self.avcp.set_session_id("123")
-        self.avcp.set_scrub(5.0)
-        self.avcp.play("http://www.example.com/video.avi", 0.1)
-
-        self.avtransport.Seek.assert_called_once_with(InstanceID="0",
-                                                      Unit="REL_TIME",
-                                                      Target="0:00:05.000")
 
     def test_set_scrub_seeks_with_uri(self):
         self.avcp.set_session_id("123")

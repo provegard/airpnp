@@ -118,10 +118,10 @@ class AVControlPoint(object):
     implements(IAirPlayServer)
 
     _uri = None
-    _pre_scrub = None
     _client = None
     _instance_id = None
     _photo = None
+    _play_pos = None
 
     def __init__(self, device, photoweb, ip_addr):
         self._connmgr = device[CN_MGR_SERVICE]
@@ -146,115 +146,88 @@ class AVControlPoint(object):
             duration = parse_duration(posinfo['TrackDuration'])
             position = parse_duration(posinfo['RelTime'])
             return duration, position
+        
+        def maybe_seek(dp):
+            duration, position = dp
+            if duration > 0 and not self._play_pos is None:
+                seek_pos = duration * self._play_pos
+                self._play_pos = None
+                self.msg(2, 'Consumed cached play position')
+                # if the device has played past the seek position, don't
+                # do anything because that would be annoying!
+                if seek_pos > position:
+                    self.set_scrub(seek_pos)
+            return dp
             
         if self._uri:
             # async call, returns a Deferred
             d = self._avtransport.GetPositionInfo(InstanceID=self._instance_id, async=True)
-
-            # add parsing function
             d.addCallback(parse_posinfo)
-
-            # generic logging of return value
+            d.addCallback(maybe_seek) # 
             d.addCallback(self._log_async, 2, 'Scrub requested, returning duration, position: %r')
             return d
         else:
-            # return a Deferred that has callback already
             return defer.succeed((0.0, 0.0))
 
     def is_playing(self):
         if self._uri:
             # async call, returns a Deferred
             d = self._avtransport.GetTransportInfo(InstanceID=self._instance_id, async=True)
-
-            # add parsing function
             d.addCallback(lambda stateinfo: stateinfo['CurrentTransportState'] == 'PLAYING')
-
-            # generic logging of return value
             d.addCallback(self._log_async, 2, 'Play status requested, returning %r')
             return d
         else:
-            # return a Deferred that has callback already
             return defer.succeed(False)
 
     def _get_current_transport_state(self):
-        stateinfo = self._avtransport.GetTransportInfo(
-            InstanceID=self._instance_id)
+        stateinfo = self._avtransport.GetTransportInfo(InstanceID=self._instance_id)
         return stateinfo['CurrentTransportState']
 
     def set_scrub(self, position):
         if self._uri:
             hms = to_duration(position)
             self.msg(2, 'Scrubbing/seeking to position %f' % (position, ))
-            self._avtransport.Seek(InstanceID=self._instance_id,
-                                   Unit='REL_TIME', Target=hms)
-        else:
-            self.msg(2, 'Saving scrub position %f for later' % (position, ))
-
-            # save the position so that we can user it later to seek
-            self._pre_scrub = position
+            self._avtransport.Seek(InstanceID=self._instance_id, Unit='REL_TIME', Target=hms)
 
     def play(self, location, position):
         if config.loglevel() >= 2:
-            self.msg(2, 'Starting playback of %s at position %f' %
+            self.msg(2, 'Starting playback of %s (requested position is %f)' %
                      (location, position))
         else:
             self.msg(1, 'Starting playback of %s' % (location, ))
 
-        # stop first, to make sure the state is STOPPED
-        self._try_stop(0)
-
         # start loading of media, state should still be STOPPED
-        self._avtransport.SetAVTransportURI(InstanceID=self._instance_id,
-                                            CurrentURI=location,
-                                            CurrentURIMetaData='')
+        self._avtransport.SetAVTransportURI(InstanceID=self._instance_id, CurrentURI=location, CurrentURIMetaData='')
 
-        # indicate that we're playing
-        # TODO: move this later?
-        self._uri = location
-
-        # if we have a saved scrub position, seek now
-        # according to the UPnP spec, seeking is allowed in the STOPPED state
-        if not self._pre_scrub is None:
-            self.msg(2, 'Seeking based on saved scrub position')
-            self.set_scrub(self._pre_scrub)
-
-            # clear it because we have used it
-            self._pre_scrub = None
-
-        # finally, start playing
-        self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
+        # indicate that we're playing, and save the requested position
+        # to be consumed later when the device knows the duration!
+        self._uri = location        
+        self._play_pos = position
 
     def stop(self):
         if self._uri:
             self.msg(1, 'Stopping playback')
-            if not self._try_stop(1):
-                self.msg(1, "Failed to stop playback, device may still be "
-                         "in a playing state")
+            if not self.stop_ignoring_718():
+                self.msg(1, "Failed to stop playback, device may still be in a playing state")
 
             # clear the URI to indicate that we don't play anymore
-            self._uri = None
+            self._uri = None            
+            self._play_pos = None
 
             # unpublish any published photo
             if not self._photo is None:
                 self._photoweb.unpublish(self._photo)
                 self._photo = None
-
-    def _try_stop(self, retries):
+                
+    def stop_ignoring_718(self):
         try:
             self._avtransport.Stop(InstanceID=self._instance_id)
             return True
         except CommandError, e:
             soap_err = e.get_soap_error()
-            if soap_err.code == '718':
-                self.msg(2, "Got 718 (invalid instance ID) for stop request, "
-                         "tries left = %d" % (retries, ))
-                if retries:
-                    return self._try_stop(retries - 1)
-                else:
-                    # ignore
-                    return False
-            else:
-                raise e
+            if soap_err.code != '718':
+                raise
+            return False
 
     def reverse(self, proxy):
         pass
@@ -262,14 +235,8 @@ class AVControlPoint(object):
     def rate(self, speed):
         if self._uri:
             if int(float(speed)) >= 1:
-                state = self._get_current_transport_state()
-                if not state == 'PLAYING' and not state == 'TRANSITIONING':
-                    self.msg(1, 'Resuming playback')
-                    self._avtransport.Play(InstanceID=self._instance_id,
-                                           Speed='1')
-                else:
-                    self.msg(2, 'Rate ignored since device state is %s' %
-                             (state, ))
+                self.msg(1, 'Starting/resuming playback')
+                self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
             else:
                 self.msg(1, 'Pausing playback')
                 self._avtransport.Pause(InstanceID=self._instance_id)

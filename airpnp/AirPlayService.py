@@ -34,7 +34,6 @@ from twisted.web import error, server
 from twisted.internet import defer
 from httplib import HTTPMessage
 from cStringIO import StringIO
-from plistlib import writePlistToString
 
 __all__ = [
     "AirPlayService",
@@ -56,26 +55,54 @@ class PlaybackInfoResource(BaseResource):
     def late_render_get(self, value, request):
         d, p = value[0][1]
         playing = value[1][1]
-        if (d+p == 0):
-            playbackBufferEmpty = True
-            readyToPlay = False
+
+        content = '<?xml version="1.0" encoding="UTF-8"?>\
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
+<plist version="1.0">\
+<dict>\
+<key>duration</key>\
+<real>%f</real>\
+<key>position</key>\
+<real>%f</real>\
+<key>rate</key>\
+<real>%f</real>\
+<key>playbackBufferEmpty</key>\
+<%s/>\
+<key>playbackBufferFull</key>\
+<false/>\
+<key>playbackLikelyToKeepUp</key>\
+<true/>\
+<key>readyToPlay</key>\
+<%s/>\
+<key>loadedTimeRanges</key>\
+<array>\
+    <dict>\
+        <key>duration</key>\
+        <real>%f</real>\
+        <key>start</key>\
+        <real>0.000000</real>\
+    </dict>\
+</array>\
+<key>seekableTimeRanges</key>\
+<array>\
+    <dict>\
+        <key>duration</key>\
+        <real>%f</real>\
+        <key>start</key>\
+        <real>0.000000</real>\
+    </dict>\
+</array>\
+</dict>\
+</plist>'
+
+        if (d + p == 0):
+            playbackBufferEmpty = 'true'
+            readyToPlay = 'false'
         else:
-            playbackBufferEmpty = False
-            readyToPlay = True
+            playbackBufferEmpty = 'false'
+            readyToPlay = 'true'
 
-        info = {"duration": float(d),
-                "position": float(p),
-                "rate": float(playing),
-                "playbackBufferEmpty": playbackBufferEmpty,
-                "playbackBufferFull": False,
-                "playbackLikelyToKeepUp": True,
-                "readyToPlay": readyToPlay,
-                "loadedTimeRanges": [{"duration": float(d),
-                                      "start": 0.0}],
-                "seekableTimeRanges": [{"duration": float(d),
-                                        "start": 0.0}]}
-
-        content = writePlistToString(info)
+        content = content % (float(d), float(p), int(playing), playbackBufferEmpty, readyToPlay, float(d), float(d))
         request.setHeader("Content-Type", CT_TEXT_PLIST)
         return content
 
@@ -161,12 +188,23 @@ class ServerInfoResource(BaseResource):
         self.model = model
 
     def render_GET(self, request):
-        info = {"deviceid": self.deviceid,
-                "features": int(self.features),
-                "model": self.model,
-                "protovers": "1.0",
-                "srcvers": "101.10"}
-        content = writePlistToString(info)
+        content = '<?xml version="1.0" encoding="UTF-8"?>\
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
+<plist version="1.0">\
+<dict>\
+<key>deviceid</key>\
+<string>%s</string>\
+<key>features</key>\
+<integer>%d</integer>\
+<key>model</key>\
+<string>%s</string>\
+<key>protovers</key>\
+<string>1.0</string>\
+<key>srcvers</key>\
+<string>101.10</string>\
+</dict>\
+</plist>'
+        content = content % (self.deviceid, self.features, self.model)
         request.setHeader("Content-Type", CT_TEXT_PLIST)
         return content
 
@@ -174,9 +212,21 @@ class ServerInfoResource(BaseResource):
 class SlideshowFeaturesResource(BaseResource):
 
     def render_GET(self, request):
-        info = {"themes": [{"key": "UPnP",
-                            "name": "UPnP"}]}
-        content = writePlistToString(info)
+        content = '<?xml version="1.0" encoding="UTF-8"?>\
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\
+<plist version="1.0">\
+<dict>\
+<key>themes</key>\
+<array>\
+<dict>\
+<key>key</key>\
+<string>UPnP</string>\
+<key>name</key>\
+<string>UPnP</string>\
+</dict>\
+</array>\
+</dict>\
+</plist>'
         request.setHeader("Content-Type", CT_TEXT_PLIST)
         return content
 
