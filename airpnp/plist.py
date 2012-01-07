@@ -35,6 +35,48 @@ __all__ = [
     'PListUnhandledError',
 ]
 
+
+# HEADER
+#         magic number ("bplist")
+#         file format version
+#
+# OBJECT TABLE
+#         variable-sized objects
+#
+#         Object Formats (marker byte followed by additional info in some cases)
+#         null    0000 0000
+#         bool    0000 1000                       // false
+#         bool    0000 1001                       // true
+#         fill    0000 1111                       // fill byte
+#         int     0001 nnnn       ...             // # of bytes is 2^nnnn, big-endian bytes
+#         real    0010 nnnn       ...             // # of bytes is 2^nnnn, big-endian bytes
+#         date    0011 0011       ...             // 8 byte float follows, big-endian bytes
+#         data    0100 nnnn       [int]   ...     // nnnn is number of bytes unless 1111 then int count follows, followed by bytes
+#         string  0101 nnnn       [int]   ...     // ASCII string, nnnn is # of chars, else 1111 then int count, then bytes
+#         string  0110 nnnn       [int]   ...     // Unicode string, nnnn is # of chars, else 1111 then int count, then big-endian 2-byte uint16_t
+#                 0111 xxxx                       // unused
+#         uid     1000 nnnn       ...             // nnnn+1 is # of bytes
+#                 1001 xxxx                       // unused
+#         array   1010 nnnn       [int]   objref* // nnnn is count, unless '1111', then int count follows
+#                 1011 xxxx                       // unused
+#         set     1100 nnnn       [int]   objref* // nnnn is count, unless '1111', then int count follows
+#         dict    1101 nnnn       [int]   keyref* objref* // nnnn is count, unless '1111', then int count follows
+#                 1110 xxxx                       // unused
+#                 1111 xxxx                       // unused
+#
+# OFFSET TABLE
+#         list of ints, byte size of which is given in trailer
+#         -- these are the byte offsets into the file
+#         -- number of these is in the trailer
+#
+# TRAILER
+#         byte size of offset ints in offset table
+#         byte size of object refs in arrays and dicts
+#         number of offsets in offset table (also is number of objects)
+#         element # in offset table which is top level object
+#         offset table offset
+
+
 # From CFDate Reference: "Absolute time is measured in seconds relative to the
 # absolute reference date of Jan 1 2001 00:00:00 GMT".
 SECS_EPOCH_TO_2001 = 978307200
@@ -57,7 +99,7 @@ MARKER_DICT = 0XD0
 
 def read_binary_plist(fd):
     """Read an object from a binary plist.
-    
+
     The binary plist format is described in CFBinaryPList.c at
     http://opensource.apple.com/source/CF/CF-550/CFBinaryPList.c. Only the top
     level object is returned.
@@ -83,6 +125,14 @@ class PListUnhandledError(Exception):
     pass
 
 
+class ObjectRef(object):
+    def __init__(self, index):
+        self.index = index
+
+    def resolve(self, lst):
+        return lst[self.index]
+
+
 class BinaryPListReader(object):
 
     def __init__(self, fd):
@@ -94,7 +144,7 @@ class BinaryPListReader(object):
         # start from the beginning to check the signature
         fd.seek(0, 0)
         buf = fd.read(7)
-        
+
         # verify the signature; the first version digit is always 0
         if buf != "bplist0":
             raise PListFormatError("Invalid signature: %s" % (buf, ))
@@ -103,30 +153,42 @@ class BinaryPListReader(object):
         fd.seek(-32, 2)
         buf = fd.read(32)
 
-        sortVersion, offsetIntSize, objectRefSize, numObjects, topObject, \
+        _, offsetIntSize, self.objectRefSize, numObjects, topObject, \
                 offsetTableOffset = unpack(">5x3B3Q", buf)
 
         # read the object offsets
-        self._offsets = []
         fd.seek(offsetTableOffset, 0)
-        for i in range(0, numObjects):
-            self._offsets.append(self._read_sized_int(offsetIntSize))
+        self._offsets = [self._read_sized_int(offsetIntSize) for _ in range(0, numObjects)]
 
-        # index of object to read
-        self._index = topObject
+        # read the actual objects
+        objects = [self._read_object(offs) for offs in self._offsets]
 
-        return self._read_objects(1)[0]
+        # resolve lazy values (references to the object list)
+        self._resolve_objects(objects)
 
-    def _read_objects(self, count):
-        ret = []
-        for i in range(0, count):
-            self._fd.seek(self._offsets[self._index])
-            self._index += 1
-            ret.append(self._read_object())
-        return ret
+        return objects[topObject]
 
-    def _read_object(self):
-        filepos = self._fd.tell()
+    def _resolve_objects(self, objects):
+        # all resolutions are in-place, to avoid breaking references to
+        # the outer objects!
+        for obj in objects:
+            if isinstance(obj, list):
+                for i in range(0, len(obj)):
+                    obj[i] = obj[i].resolve(objects)
+            if isinstance(obj, set):
+                temp = [item.resolve(objects) for item in obj]
+                obj.clear()
+                obj.update(temp)
+            if isinstance(obj, dict):
+                temp = {k.resolve(objects): v.resolve(objects) for k, v in obj.items()}
+                obj.clear()
+                obj.update(temp)
+
+    def _read_object(self, offset=-1):
+        if offset >= 0:
+            self._fd.seek(offset)
+        else:
+            offset = self._fd.tell()  # for the error message
         marker = ord(self._fd.read(1))
         nb1 = marker & 0xf0
         nb2 = marker & 0x0f
@@ -144,7 +206,7 @@ class BinaryPListReader(object):
             obj = self._read_sized_int(count)
         elif nb1 == MARKER_REAL:
             obj = self._read_sized_float(nb2)
-        elif marker == MARKER_DATE: # marker!
+        elif marker == MARKER_DATE:  # marker!
             secs = self._read_sized_float(3)
             secs += SECS_EPOCH_TO_2001
             obj = datetime.fromtimestamp(secs, UTC())
@@ -164,25 +226,25 @@ class BinaryPListReader(object):
             obj = self._read_sized_int(count)
         elif nb1 == MARKER_ARRAY:
             count = self._read_count(nb2)
-            obj = self._read_objects(count)
+            # we store lazy references to the object list
+            obj = [ObjectRef(self._read_sized_int(self.objectRefSize)) for _ in range(0, count)]
         elif nb1 == MARKER_SET:
             count = self._read_count(nb2)
-            obj = set({})
-            for o in self._read_objects(count):
-                obj.add(o)
+            # we store lazy references to the object list
+            obj = set([ObjectRef(self._read_sized_int(self.objectRefSize)) for _ in range(0, count)])
         elif nb1 == MARKER_DICT:
             count = self._read_count(nb2)
-            keys = self._read_objects(count)
-            values = self._read_objects(count)
-            obj = {}
-            for i in range(0, count):
-                obj[keys[i]] = values[i]
+            # first N keys, then N values
+            # we store lazy references to the object list
+            keys = [ObjectRef(self._read_sized_int(self.objectRefSize)) for _ in range(0, count)]
+            values = [ObjectRef(self._read_sized_int(self.objectRefSize)) for _ in range(0, count)]
+            obj = dict(zip(keys, values))
 
         try:
             return obj
         except NameError:
             raise PListFormatError("Unknown marker at position %d: %d" %
-                                   (filepos, marker))
+                                   (offset, marker))
 
     def _read_count(self, nb2):
         count = nb2

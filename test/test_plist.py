@@ -12,6 +12,11 @@ class TestReadBinary(unittest.TestCase):
         fd = StringIO("hello, world")
         self.assertRaises(PListFormatError, read_binary_plist, fd)
 
+    def test_parsing_setProperty_plist(self):
+        data = 'bplist00\xd1\x01\x02Uvalue\xd4\x03\x04\x05\x06\x07\x07\x07\x07YtimescaleUvalueUepochUflags\x10\x00\x08\x0b\x11\x1a$*06\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008'
+        fd = StringIO(data)
+        content = read_binary_plist(fd)
+        self.assertTrue('value' in content)
 
 def test_read_plist(): # generator function
     yield check_plist, 'plist/true.bin', True
