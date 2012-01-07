@@ -77,7 +77,7 @@ class TestAirPlayProtocol(unittest.TestCase):
         self._send_data(data)
 
         self.assertTrue(self.apserver.stop.called)
-        
+
     def test_get_scrub_method_calls(self):
         self.apserver.get_scrub.return_value = defer.succeed((0.0, 0.0))
         data = "GET /scrub HTTP/1.1\r\nHost: www.example.com\r\nContent-Length: 0\r\n\r\n"

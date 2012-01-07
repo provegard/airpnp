@@ -119,17 +119,17 @@ class BaseResource(resource.Resource):
             if isinstance(ret, defer.Deferred):
                 # get a Deferred for request notifications
                 notify = request.notifyFinish()
-                
+
                 # wait for both Deferreds in parallel, but we want to know as
                 # soon as one of them callbacks or errbacks
                 dl = defer.DeferredList([ret, notify], fireOnOneCallback=True,
                                         fireOnOneErrback=True,
                                         consumeErrors=True)
-                
+
                 # add our handlers
                 dl.addCallbacks(self.late_render, self.late_error,
                                 callbackArgs=[request], errbackArgs=[request])
-                
+
                 # the request is not finished yet
                 ret = server.NOT_DONE_YET
         except SessionRejectedError:

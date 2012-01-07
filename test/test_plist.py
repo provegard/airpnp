@@ -18,7 +18,8 @@ class TestReadBinary(unittest.TestCase):
         content = read_binary_plist(fd)
         self.assertTrue('value' in content)
 
-def test_read_plist(): # generator function
+
+def test_read_plist():  # generator function
     yield check_plist, 'plist/true.bin', True
     yield check_plist, 'plist/false.bin', False
     yield check_plist, 'plist/int8.bin', 255
@@ -39,10 +40,12 @@ def test_read_plist(): # generator function
                                              "http://v9.lscache4.googlevideo.com/videoplayback?id=3eac4bbd43c31217&itag=18&uaopt=no-save&el=related&client=ytapi-apple-iphone&devKey=AdW2Kh1KB1Jkhso4mAT4nHgO88HsQjpE1a8d1GxQnGDm&app=youtube_gdata&ip=0.0.0.0&ipbits=0&expire=1313568456&sparams=id,itag,uaopt,ip,ipbits,expire&signature=625BB56F7EF7AB65ED34C5D2B09539AA90B4F6B4.4227E5A20028E6F86621FAB7F15827A79E31C9EE&key=yta1",
                                              "Start-Position": 0.0005364880198612809}
 
+
 def check_plist(fname, expected):
     fd = read_file(fname)
     obj = read_binary_plist(fd)
     assert obj == expected
+
 
 def read_file(fname):
     with open(os.path.join(os.path.dirname(__file__),

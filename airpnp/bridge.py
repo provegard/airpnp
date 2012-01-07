@@ -158,7 +158,7 @@ class AVControlPoint(object):
                 if seek_pos > position:
                     self.set_scrub(seek_pos)
             return dp
-            
+
         if self._uri:
             # async call, returns a Deferred
             d = self._avtransport.GetPositionInfo(InstanceID=self._instance_id, async=True)

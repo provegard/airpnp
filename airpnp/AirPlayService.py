@@ -14,7 +14,7 @@
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -48,7 +48,7 @@ class PlaybackInfoResource(BaseResource):
         dl = defer.DeferredList([d1, d2], consumeErrors=True)
         dl.addCallback(self.late_render_get, request)
         return dl
-    
+
     def late_render_get(self, value, request):
         d, p = value[0][1]
         playing = value[1][1]
@@ -112,7 +112,7 @@ class PlayResource(BaseResource):
 
         # position may not be given for streaming media
         position = parsedbody['Start-Position'] if \
-                parsedbody.has_key('Start-Position') else 0.0
+                'Start-Position' in parsedbody else 0.0
         self.apserver.play(parsedbody['Content-Location'], float(position))
         return ""
 
@@ -138,7 +138,7 @@ class ScrubResource(BaseResource):
         d = self.apserver.get_scrub()
         d.addCallback(self.late_render_get)
         return d
-    
+
     def late_render_get(self, value):
         d, p = value
         content = "duration: " + str(float(d))
@@ -154,7 +154,7 @@ class ScrubResource(BaseResource):
 class ReverseResource(BaseResource):
 
     def render_POST(self, request):
-        self.apserver.reverse(None) #TODO
+        self.apserver.reverse(None)  # TODO
         request.setResponseCode(101)
         request.setHeader("Upgrade", "PTTH/1.0")
         request.setHeader("Connection", "Upgrade")
@@ -236,7 +236,7 @@ class AirPlayService(MultiService):
         self.apserver = IAirPlayServer(apserver)
 
         macstr = "%012X" % uuid.getnode()
-        self.deviceid = ''.join("%s:" % macstr[i:i+2] for i in range(0, len(macstr), 2))[:-1]
+        self.deviceid = ''.join("%s:" % macstr[i:i + 2] for i in range(0, len(macstr), 2))[:-1]
         # 0x77 instead of 0x07 in order to support AirPlay from ordinary apps;
         # also means that the body for play will be a binary plist.
         self.features = 0x77
@@ -248,7 +248,7 @@ class AirPlayService(MultiService):
         # create avahi service
         if (name is None):
             name = "Airplay Service on " + platform.node()
-        zconf = ZeroconfService(name, port=port, stype="_airplay._tcp", 
+        zconf = ZeroconfService(name, port=port, stype="_airplay._tcp",
                                 text=["deviceid=" + self.deviceid, "features=" + hex(self.features), "model=" + self.model],
                                 index=index)
         zconf.setServiceParent(self)
@@ -278,6 +278,7 @@ class AirPlayService(MultiService):
         MultiService.startService(self)
         log.msg("AirPlayService '%s' is running at %s:%d" % (self.name_, self.host,
                                                              self.port))
+
     def stopService(self):
         log.msg("AirPlayService '%s' was stopped" % (self.name_, ))
         return MultiService.stopService(self)
