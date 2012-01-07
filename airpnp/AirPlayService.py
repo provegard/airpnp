@@ -25,7 +25,7 @@ import uuid
 
 from ZeroconfService import ZeroconfService
 from plist import read_binary_plist
-from airplayserver import BaseResource, IAirPlayServer
+from airplayserver import *
 
 from twisted.python import log
 from twisted.application.service import MultiService
@@ -38,9 +38,6 @@ from cStringIO import StringIO
 __all__ = [
     "AirPlayService",
 ]
-
-CT_BINARY_PLIST = 'application/x-apple-binary-plist'
-CT_TEXT_PLIST = 'text/x-apple-plist+xml'
 
 
 class PlaybackInfoResource(BaseResource):
@@ -274,6 +271,7 @@ class AirPlayService(MultiService):
         root.putChild("server-info", ServerInfoResource(self.apserver, self.deviceid,
                                                         self.features,
                                                         self.model))
+        root.putChild("setProperty", SetPropertyResource(self.apserver))
         return server.Site(root)
 
     def startService(self):

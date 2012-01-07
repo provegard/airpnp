@@ -30,12 +30,20 @@ from twisted.web import resource, server
 from twisted.internet import defer
 from twisted.python import log
 from zope.interface import Interface
+from plist import read_binary_plist
+from cStringIO import StringIO
 
 __all__ = [
     'BaseResource',
     'IAirPlayServer',
     'SessionRejectedError',
+    'SetPropertyResource',
+    'CT_BINARY_PLIST',
+    'CT_TEXT_PLIST',
 ]
+
+CT_BINARY_PLIST = 'application/x-apple-binary-plist'
+CT_TEXT_PLIST = 'text/x-apple-plist+xml'
 
 
 class SessionRejectedError(Exception):
@@ -89,6 +97,9 @@ class IAirPlayServer(Interface):
 
     def rate(speed):
         """Adjust the playback speed."""
+
+    def set_property(name, value):
+        """Set the value of a property."""
 
 
 class BaseResource(resource.Resource):
@@ -156,3 +167,17 @@ class BaseResource(resource.Resource):
                 request.finish()
             except:
                 log.err(None, "Failed to write error response for AirPlay request.")
+
+
+class SetPropertyResource(BaseResource):
+
+    def render_PUT(self, request):
+        ctype = request.getAllHeaders().get('content-type')
+        if ctype == CT_BINARY_PLIST:
+            prop = request.uri.rsplit("?", 1)[1]
+            parsedbody = read_binary_plist(StringIO(request.content.read()))
+            value = parsedbody.get("value")
+            self.apserver.set_property(prop, value)
+        else:
+            raise Exception("Unexpected content type for setProperty: %s" % ctype)
+        return ""

@@ -161,6 +161,19 @@ class TestAirPlayProtocol(unittest.TestCase):
         self.assertTrue(args[0].startswith("http://"))
         self.assertEqual(args[1], 0.0005364880198612809)
 
+    def test_setProperty_with_binary_plist_method_calls(self):
+        bindata = 'bplist00\xd1\x01\x02Uvalue\xd4\x03\x04\x05\x06\x07\x07\x07\x07YtimescaleUvalueUepochUflags\x10\x00\x08\x0b\x11\x1a$*06\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008'
+        data = "PUT /setProperty?forwardEndTime HTTP/1.1\r\nHost: www.example.com\r\n" + \
+               "Content-Type: application/x-apple-binary-plist\r\n" + \
+               "Content-Length: %d\r\n\r\n" % (len(bindata), )
+        data += bindata
+        self._send_data(data)
+
+        self.assertTrue(self.apserver.set_property.called)
+        args = self.apserver.set_property.call_args[0]
+        self.assertEqual(args[0], "forwardEndTime")
+        self.assertTrue("epoch" in args[1])
+
     def _send_playback_info(self, get_scrub_response, is_playing_response):
         self.apserver.get_scrub.return_value = defer.succeed(get_scrub_response)
         self.apserver.is_playing.return_value = defer.succeed(is_playing_response)

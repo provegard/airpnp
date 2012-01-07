@@ -273,6 +273,9 @@ class AVControlPoint(object):
         # show the photo (no-op if we're already playing)
         self._avtransport.Play(InstanceID=self._instance_id, Speed='1')
 
+    def set_property(self, name, value):
+        pass
+
     def allocate_instance_id(self):
         iid = '0'
         if hasattr(self._connmgr, 'PrepareForConnection'):
