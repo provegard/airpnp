@@ -31,9 +31,9 @@ Dependencies
 The code has been tested with Python 2.7, but probably works with some earlier
 2.x versions as well.
 
-External dependencies include Twisted Web, Avahi, and Mock (the latter is only
-necessary for running tests). On a standard Ubuntu 11.04 server setup, the
-following commands install the required dependencies:
+External dependencies include Twisted Web, Avahi, Mock and Lettuce (the last
+two are only necessary for running tests). On a standard Ubuntu 11.04 server
+setup, the following commands install the required dependencies:
 
     sudo apt-get install python-twisted-web python-avahi
 
@@ -42,9 +42,14 @@ For running tests:
     sudo apt-get install python-setuptools
     sudo apt-get install python-nose
     sudo easy_install mock
+    sudo easy_install lettuce
 
 Version 0.7.0 of python-mock that exists in the Natty repositories is not
 sufficient. As of this writing, easy_install provides version 0.8.0beta3.
+If you use pip to install Python packages, use the following to get the
+proper version:
+
+    sudo pip install mock==dev
 
 The avahi daemon must be installed:
 
@@ -81,15 +86,27 @@ To run in the foreground, use the following command:
 
     twistd -n airpnp
 
+To use a different configuration file than ~/.airpnprc:
+
+    twistd airpnp -c /path/to/config
+
+
+Running tests
+-------------
 To run unit tests, run the following from the top-level directory:
 
     nosetests
+
+To run integration tests, make sure Lettuce is installed and run the
+following command from the top-level directory:
+
+    lettuce
 
 
 Contact Information
 -------------------
 Author: Per Rovegård
-Internet: http://airpnp.finkod.se
+Internet: http://www.airpnp.org
 E-mail: airpnp@finkod.se
 
 

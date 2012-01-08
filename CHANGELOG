@@ -1,13 +1,17 @@
 CHANGELOG
 
-Upcoming
+Version 0.23 (2012-01-08):
 * Add support for photo viewing from iDevices.
 * Use nosetests for running tests now.
+* Introduced some integration tests that are run with Lettuce.
 * Changed get_scrub and is_playing of AVControlPoint to be asynchronuous.
 * Removed dependency on python-routes.
 * Added Interactive Web for UPnP debugging.
 * Increased robustness by checking that UPnP service are present.
 * Increased robustness by using Twisted Deferreds for device building.
+* Improved logging.
+* New iOS 5 setProperty request is handled (but not acted upon).
+* Binary plist parsing bug fixed.
 
 Version 0.22:
 * Updated error handling

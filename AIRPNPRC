@@ -8,5 +8,7 @@ interactive_web=no
 # port for Interactive Web
 interactive_web_port=28080
 
-# host name to use for created URIs
-#hostname=
+# interface to use for listening, URIs, etc.
+# can be an IP address or an interface name
+#interface=eth0
+#interface=10.0.0.1
