@@ -38,6 +38,7 @@ __all__ = [
     'IAirPlayServer',
     'SessionRejectedError',
     'SetPropertyResource',
+    'LogNoResource',
     'CT_BINARY_PLIST',
     'CT_TEXT_PLIST',
 ]
@@ -110,7 +111,7 @@ class BaseResource(resource.Resource):
 
     def render(self, request):
         log.msg("Got AirPlay request, URI = %s, %r"
-                % (request.uri, request.requestHeaders), ll=3)
+                % (request.uri, request.getAllHeaders()), ll=3)
         sid = request.getHeader("X-Apple-Session-Id")
         ret = ""
         try:
@@ -181,3 +182,11 @@ class SetPropertyResource(BaseResource):
         else:
             raise Exception("Unexpected content type for setProperty: %s" % ctype)
         return ""
+
+
+class LogNoResource(resource.NoResource):
+    def render(self, request):
+        body = request.content.read()
+        log.msg("Unknown AirPlay request: %s %s, headers = %r, body = %r"
+                % (request.method, request.uri, request.getAllHeaders(), body), ll=3)
+        return resource.NoResource.render(self, request)

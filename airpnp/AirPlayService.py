@@ -30,7 +30,7 @@ from airplayserver import *
 from twisted.python import log
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer
-from twisted.web import error, server
+from twisted.web import server
 from twisted.internet import defer
 from httplib import HTTPMessage
 from cStringIO import StringIO
@@ -259,7 +259,7 @@ class AirPlayService(MultiService):
         self.port = port
 
     def create_site(self):
-        root = error.NoResource()
+        root = LogNoResource()
         root.putChild("playback-info", PlaybackInfoResource(self.apserver))
         root.putChild("play", PlayResource(self.apserver))
         root.putChild("stop", StopResource(self.apserver))
