@@ -5,6 +5,6 @@ Feature: Starting Airpnp
 
 	Scenario: Verify aliveness
 		Given an empty configuration
-		When I start Airpnp
-		Then I should see the log message "Airpnp started"
+		When Airpnp is started
+		Then the log should contain the message "Airpnp started"
 

@@ -25,22 +25,6 @@ def millis():
     import time as time_ #make sure we don't override time
     return int(round(time_.time() * 1000))
 
-def read_until(q, pattern, timeout=1000):
-    import re
-    start = millis()
-    lines = []
-    pat = re.compile(pattern)
-    found = False
-    while millis() - start < timeout:
-        try:
-            line = q.get(timeout=.2)
-            lines.append(line)
-            if pat.match(line):
-                found = True
-                break
-        except Empty:
-            pass
-    return (found, lines)
 
 class Process(object):
 
@@ -75,11 +59,11 @@ class Process(object):
             try:
                 line = self.q.get(block, timeout=get_timeout)
                 self.lines.append(line)
-                if not pat is None and pat.match(line):
+                if pat and pat.match(line):
                     found = True
                     break
             except Empty:
-                if not line_pattern is None and millis() < start + timeout:
+                if line_pattern and millis() < start + timeout:
                     block = True
                     get_timeout = 0.1
                 else:
@@ -106,7 +90,8 @@ class AirpnpProcess(Process):
             config = {}
         else:
             config = config.copy()
-        config['interface'] = '127.0.0.1'
+        #TODO: externally configured interface!!
+        #config['interface'] = '127.0.0.1'
         config['loglevel'] = '4'
         f = tempfile.NamedTemporaryFile(delete=False)
         f.write("[airpnp]\n")
@@ -121,7 +106,7 @@ class AirpnpProcess(Process):
         self.stopped = True
 
     def delfiles(self):
-        for f in self.todelete:
+        for f in [ff for ff in self.todelete if os.path.exists(ff)]:
             os.unlink(f)
 
     def __del__(self):

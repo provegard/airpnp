@@ -3,16 +3,15 @@ Feature: UPnP discovery and detection
 	I want AirPnp to discover UPnP devices
 	So that it can expose them as AirPlay servers
 
-	Scenario: Send SSDP M-SEARCH message
-		Given an empty configuration
-		And I listen for discovery messages 
-		When I start Airpnp
-		Then I will see the following discovery message:
-			"""
-			M-SEARCH * HTTP/1.1
-			HOST: 239.255.255.250:1900
-			MAN: "ssdp:discover""
-			MX: 5
-			ST: ssdp:all
-			"""
+  Scenario: Detect UPnP media renderer
+    Given an empty configuration
+    And a media renderer with UDN uuid:00000000-0000-0000-0000-001122334455 and name MR1 is running
+    When Airpnp is started
+    Then the log should contain the message "Found device MR1 [UDN=uuid:00000000-0000-0000-0000-001122334455]"
+
+  Scenario: Ignore UPnP printer
+    Given an empty configuration
+    And a printer with UDN uuid:00000000-0000-0000-0000-001122334466 and name Print1 is running
+    When Airpnp is started
+    Then the log should contain the message "Adding device Print1 [UDN=uuid:00000000-0000-0000-0000-001122334466] to ignore list"
 

@@ -11,7 +11,7 @@ def start_airpnp():
     world.airpnp = AirpnpProcess(config).start()
 
 @world.absorb
-def start_process(cmd_line, cwd):
+def start_process(cmd_line, cwd="."):
     if not hasattr(world, 'processes'):
         world.processes = []
     proc = Process(cmd_line, cwd=cwd).start()

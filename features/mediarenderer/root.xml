@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
+    <friendlyName />
+    <manufacturer>AMediaRendererManufacturer</manufacturer>
+    <modelName>AMediaRenderer</modelName>
+    <UDN />
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId>
+        <SCPDURL>avtransport.xml</SCPDURL>
+        <controlURL>MediaRenderer_AVTransport/control</controlURL>
+        <eventSubURL>MediaRenderer_AVTransport/event</eventSubURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId>
+        <SCPDURL>connmgr.xml</SCPDURL>
+        <controlURL>MediaRenderer_ConnectionManager/control</controlURL>
+        <eventSubURL>MediaRenderer_ConnectionManager/event</eventSubURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId>
+        <SCPDURL>rendctl.xml</SCPDURL>
+        <controlURL>MediaRenderer_RenderingControl/control</controlURL>
+        <eventSubURL>MediaRenderer_RenderingControl/event</eventSubURL>
+      </service>
+    </serviceList>
+  </device>
+</root>

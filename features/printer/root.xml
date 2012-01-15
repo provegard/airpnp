@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:Printer:1</deviceType>
+    <friendlyName />
+    <manufacturer>APrinterManufacturer</manufacturer>
+    <modelName>APrinter</modelName>
+    <UDN />
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:PrintBasic:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:1</serviceId>
+        <SCPDURL>PrintBasic.xml</SCPDURL>
+        <controlURL>/upnp/control/printercontrol</controlURL>
+        <eventSubURL>/printercontrol</eventSubURL>
+      </service>
+    </serviceList>
+  </device>
+</root>
