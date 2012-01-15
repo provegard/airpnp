@@ -33,6 +33,7 @@ from cStringIO import StringIO
 from xml.etree import ElementTree as ET
 from httplib import HTTPMessage
 from random import random
+from upnpx import parse_attrns
 
 from zope.interface import Interface, implements
 from twisted.internet import error
@@ -107,24 +108,6 @@ register_namespace(ET, 's', ns.s)
 register_namespace(ET, 'dc', ns.dc)
 register_namespace(ET, 'upnp', ns.upnp)
 register_namespace(ET, 'dlna', ns.dlna)
-
-# patch for attributes outside of namespaces
-def parse_attrns(file):
-    events = ("start", )
-    root = None
-    for event, elem in ET.iterparse(file, events):
-        if event == "start":
-            if root is None:
-                root = elem
-            if elem.tag.find("}") < 0:
-                continue
-            uri, name = elem.tag[1:].rsplit("}", 1)
-            for k, v in elem.attrib.items():
-                if k[:1] != "{":
-                    del elem.attrib[k]
-                    k = "{%s}%s" % (uri, k)
-                    elem.attrib[k] = v
-    return ET.ElementTree(root)
 
 def toxpath(path, default_ns=None, nsmap=nsmap):
     nodes = []
