@@ -230,13 +230,17 @@ class SlideshowFeaturesResource(BaseResource):
 
 class AirPlayService(MultiService):
 
-    def __init__(self, apserver, name=None, host="0.0.0.0", port=22555, index=-1):
+    def __init__(self, apserver, name=None, host="0.0.0.0", port=22555, index=-1, device_id=None):
         MultiService.__init__(self)
 
         self.apserver = IAirPlayServer(apserver)
 
-        macstr = "%012X" % uuid.getnode()
-        self.deviceid = ''.join("%s:" % macstr[i:i + 2] for i in range(0, len(macstr), 2))[:-1]
+        if device_id:
+            self.deviceid = device_id
+        else:
+            macstr = "%012X" % uuid.getnode()
+            self.deviceid = ''.join("%s:" % macstr[i:i + 2] for i in range(0, len(macstr), 2))[:-1]
+
         # 0x77 instead of 0x07 in order to support AirPlay from ordinary apps;
         # also means that the body for play will be a binary plist.
         self.features = 0x77

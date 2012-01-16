@@ -394,3 +394,25 @@ class TestFormatSoapMessage(unittest.TestCase):
         msg.set_arg("Arg2", "0")
         self.assertEqual('AnOperation(Arg1=0, Arg2=0)', format_soap_message(msg))
 
+
+class TestCreateDeviceId(unittest.TestCase):
+
+    def test_create_id_from_uuid(self):
+        id = "uuid:f8ecf350-8691-4639-a735-c10ee6ad15c1"
+        did = create_device_id(id)
+        self.assertEqual(17, len(did))
+        self.assertEqual(6, len(did.split(":")))
+
+    def test_create_id_from_non_uuid(self):
+        id = "uuid:media_renderer_xyz"
+        did = create_device_id(id)
+        self.assertEqual(17, len(did))
+        self.assertEqual(6, len(did.split(":")))
+
+    def test_that_create_id_is_not_random(self):
+        id = "uuid:f8ecf350-8691-4639-a735-c10ee6ad15c1"
+        did1 = create_device_id(id)
+        did2 = create_device_id(id)
+        self.assertEqual(did1, did2)
+
+

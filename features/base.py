@@ -42,33 +42,21 @@ class Process(object):
         return self
 
     def stop(self):
-        self.proc.kill()
+        self.proc.terminate()
 
-    def read_lines(self, line_pattern=None, timeout=1000):
-        if not hasattr(self, 'lines'):
-            self.lines = []
-        if line_pattern is None:
-            pat = None
-        else:
-            pat = re.compile(line_pattern)
-        found = False
-        start = millis()
-        block = False
-        get_timeout = None
-        while True:
+    def read_lines(self, timeout=1000):
+        block = True
+        get_timeout = min(.1, timeout / 1000.0)
+        stop = millis() + timeout
+        while millis() < stop:
             try:
                 line = self.q.get(block, timeout=get_timeout)
-                self.lines.append(line)
-                if pat and pat.match(line):
-                    found = True
-                    break
+                yield line
             except Empty:
-                if line_pattern and millis() < start + timeout:
-                    block = True
-                    get_timeout = 0.1
-                else:
-                    break
-        return found, self.lines
+                if not self.proc.poll() is None:
+                    break # process died
+            block = False # only block first time
+
 
 class AirpnpProcess(Process):
 

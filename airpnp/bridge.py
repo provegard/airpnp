@@ -33,7 +33,7 @@ from airplayserver import IAirPlayServer
 from AirPlayService import AirPlayService
 from upnp import parse_duration, to_duration
 from config import config
-from util import get_image_type
+from util import get_image_type, create_device_id
 from interactive import InteractiveWeb
 from zope.interface import implements
 from twisted.internet import defer
@@ -88,7 +88,8 @@ class BridgeServer(DeviceDiscoveryService):
         log.msg('Found device %s with base URL %s' % (device,
                                                       device.get_base_url()))
         cpoint = AVControlPoint(device, self.photoweb, self.interface[0])
-        avc = AirPlayService(cpoint, device.friendlyName, host=self.interface[0], port=self._find_port(), index=self.interface[1])
+        devid = create_device_id(device.UDN)
+        avc = AirPlayService(cpoint, device.friendlyName, host=self.interface[0], port=self._find_port(), index=self.interface[1], device_id=devid)
         avc.setName(device.UDN)
         avc.setServiceParent(self)
         

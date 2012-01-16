@@ -40,6 +40,7 @@ __all__ = [
     'split_usn',
     'get_max_age',
     'get_image_type',
+    'create_device_id',
 ]
 
 
@@ -219,4 +220,12 @@ def format_soap_message(msg):
     name = msg.action.tag
     name = name[name.find("}")+1:]
     return "%s(%s)" % (name, arg_str)
+
+
+def create_device_id(data):
+    """Return a device ID string suitable for use when publishing an AirPlay
+    service."""
+    h = abs(long(hash(str(data))))
+    hx = ("%012X" % h)[:12]
+    return ''.join("%s:" % hx[i:i + 2] for i in range(0, len(hx), 2))[:-1]
 
