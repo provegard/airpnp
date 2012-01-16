@@ -326,8 +326,13 @@ class UpnpDevice(object):
         self.mapper = mapper
 
         # load DD
-        self.dd = ET.parse(dd)
-        xml_dir = os.path.dirname(dd)
+        if isinstance(dd, tuple):
+            dd, path = dd
+            self.dd = ET.parse(dd)
+            xml_dir = os.path.dirname(path)
+        else:
+            self.dd = ET.parse(dd)
+            xml_dir = os.path.dirname(dd)
 
         # set UDN
         self.dd.find(xp('device/UDN')).text = udn

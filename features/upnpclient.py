@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from airpnp.upnp import *
 from uuid import uuid1
 from twisted.internet import reactor
+from cStringIO import StringIO
 
 
 class Client(object):
@@ -18,29 +19,22 @@ class Client(object):
         self.basedir = basedir
         self.udn = udn
         self.name = name
-        self.root = self.create_temp_root()
         self.prepare()
 
     def prepare(self):
-        dd = os.path.join(self.basedir, self.root)
+        path = os.path.join(self.basedir, "root.xml")
+        data = self.modify_root(path)
+        dd = (StringIO(data), path)
         device = UpnpDevice(self.udn, dd, self.soap_app)
         self.base = UpnpBase()
         self.base.append_device([device])
 
-    def create_temp_root(self):
-        fd, path = tempfile.mkstemp(suffix=".xml", dir=self.basedir, text=True)
-        dst = os.fdopen(fd, "w")
-        with open(os.path.join(self.basedir, "root.xml")) as src:
-            while 1:
-                buf = src.read(8192)
-                buf = re.sub("<friendlyName\\s*/>",
-                             "<friendlyName>%s</friendlyName>" % self.name, buf)
-                if buf:
-                    dst.write(buf)
-                else:
-                    break
-        dst.close()
-        return path
+    def modify_root(self, path):
+        with open(path, "r") as fd:
+            data = fd.read()
+        data = re.sub("<friendlyName\\s*/>",
+                      "<friendlyName>%s</friendlyName>" % self.name, data)
+        return data
 
     def soap_app(self, environ, start_response):
         sid = environ['wsgiorg.routing_args'][1]['sid']
@@ -56,7 +50,6 @@ class Client(object):
     def stop(self):
         self.base.remove_device(self.udn)
         self.base.stop()
-        os.unlink(self.root)
 
 
 def main(reactor):
