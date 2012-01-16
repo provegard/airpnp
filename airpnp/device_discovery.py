@@ -167,8 +167,12 @@ class DeviceDiscoveryService(MultiService):
     def _send_soap_message(self, device, url, msg, async=False, deferred=None):
         """Send a SOAP message and do error handling."""
         def log_answer(response):
-            log.msg('Got SOAP response from %s: %s' %
-                    (device.friendlyName, format_soap_message(response)), ll=3)
+            if isinstance(response, SoapError):
+                log.msg('Error response for %s command from %s: %s/%s' %
+                        (msg.get_name(), device.friendlyName, response.code, response.desc))
+            else:
+                log.msg('Got SOAP response from %s: %s' %
+                        (device.friendlyName, format_soap_message(response)), ll=3)
             return response
         try:
             log.msg('Sending SOAP message to %s: %s' %
@@ -179,10 +183,6 @@ class DeviceDiscoveryService(MultiService):
             else:
                 answer = send_soap_message(url, msg)
                 log_answer(answer)
-                if isinstance(answer, SoapError):
-                    # log only, don't raise - assume caller handles the error
-                    log.msg('Error response for %s command to device %s: %s/%s' %
-                            (msg.get_name(), device, answer.code, answer.desc))
             return answer
         except:
             log.err(None, 'Failed to send command "%s" to device %s' %
