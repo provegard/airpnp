@@ -416,3 +416,28 @@ class TestCreateDeviceId(unittest.TestCase):
         self.assertEqual(did1, did2)
 
 
+def test_service_compatibility(): # generator function
+    # different types
+    yield (check_compatibility, 'urn:upnp-org:service:ConnectionManager:1', 
+           'urn:upnp-org:service:AVTransport:1', False)
+    # same type and version
+    yield (check_compatibility, 'urn:upnp-org:service:ConnectionManager:1', 
+           'urn:upnp-org:service:ConnectionManager:1', True)
+    # actual has lower version
+    yield (check_compatibility, 'urn:upnp-org:service:ConnectionManager:2', 
+           'urn:upnp-org:service:ConnectionManager:1', False)
+    # actual has higher version
+    yield (check_compatibility, 'urn:upnp-org:service:ConnectionManager:1', 
+           'urn:upnp-org:service:ConnectionManager:2', True)
+    # malformed actual
+    yield (check_compatibility, 'urn:upnp-org:service:ConnectionManager:1', 
+           'ConnectionManager', False)
+    # malformed required
+    yield (check_compatibility, 'ConnectionManager', 
+           'urn:upnp-org:service:ConnectionManager:1', False)
+
+
+def check_compatibility(req, act, exp_outcome):
+    compat = are_service_types_compatible(req, act)
+    assert exp_outcome == compat
+

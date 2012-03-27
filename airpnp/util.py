@@ -28,6 +28,7 @@
 
 import urllib2
 import re
+from string import rsplit
 from upnp import SoapMessage, SoapError
 from cStringIO import StringIO
 from twisted.web import client, error, http
@@ -41,6 +42,7 @@ __all__ = [
     'get_max_age',
     'get_image_type',
     'create_device_id',
+    'are_service_types_compatible',
 ]
 
 
@@ -228,4 +230,14 @@ def create_device_id(data):
     h = abs(long(hash(str(data))))
     hx = ("%012X" % h)[:12]
     return ''.join("%s:" % hx[i:i + 2] for i in range(0, len(hx), 2))[:-1]
+
+
+def are_service_types_compatible(required, actual):
+    rparts = rsplit(required, ':', 1)
+    aparts = rsplit(actual, ':', 1)
+    if len(rparts) != 2 or len(aparts) != 2:
+        return False
+    rtype, rver = rparts
+    atype, aver = aparts
+    return rtype == atype and int(aver) >= int(rver)
 
