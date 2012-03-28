@@ -26,7 +26,7 @@ def see_log_message(step, message):
     found, lines = find_pattern(pattern, world.airpnp, 10000)
     assert found == True, "Got log lines: %r" % lines
 
-@step(u'a (.*) with UDN (.*) and name (.*) is running')
+@step(u'an? (.*) with UDN (.*) and name (.*) is running')
 def media_renderer_is_running(step, device, udn, name):
     # args are unicode, need to convert to str first!
     device = str(device).replace(" ", "")

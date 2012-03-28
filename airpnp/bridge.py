@@ -42,14 +42,16 @@ from twisted.web import server, resource, static
 from twisted.python import log
 
 MEDIA_RENDERER_DEVICE_TYPE = 'urn:schemas-upnp-org:device:MediaRenderer:1'
-MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE,
-                        'urn:schemas-upnp-org:service:AVTransport:1',
-                        'urn:schemas-upnp-org:service:ConnectionManager:1',
-                        'urn:schemas-upnp-org:service:RenderingControl:1']
+AVTRANSPORT_SERVICE_TYPE = 'urn:schemas-upnp-org:service:AVTransport:1'
+CONNMANAGER_SERVICE_TYPE = 'urn:schemas-upnp-org:service:ConnectionManager:1'
+RENDERINGCTRL_SERVICE_TYPE = 'urn:schemas-upnp-org:service:RenderingControl:1'
 
-CN_MGR_SERVICE = 'urn:upnp-org:serviceId:ConnectionManager'
-AVT_SERVICE = 'urn:upnp-org:serviceId:AVTransport'
-REQ_SERVICES = [CN_MGR_SERVICE, AVT_SERVICE]
+# List of types that trigger the build of a device
+MEDIA_RENDERER_TYPES = [MEDIA_RENDERER_DEVICE_TYPE, AVTRANSPORT_SERVICE_TYPE,
+                        CONNMANAGER_SERVICE_TYPE, RENDERINGCTRL_SERVICE_TYPE]
+
+# List of service types that a device must have
+REQ_SERVICE_TYPES = [AVTRANSPORT_SERVICE_TYPE, CONNMANAGER_SERVICE_TYPE]
 
 
 class BridgeServer(DeviceDiscoveryService):
@@ -57,7 +59,7 @@ class BridgeServer(DeviceDiscoveryService):
     def __init__(self, interface):
         DeviceDiscoveryService.__init__(self, interface[0], MEDIA_RENDERER_TYPES,
                                         [MEDIA_RENDERER_DEVICE_TYPE],
-                                        REQ_SERVICES)
+                                        REQ_SERVICE_TYPES)
 
         self._ports = []
         
@@ -125,8 +127,10 @@ class AVControlPoint(object):
     _play_pos = None
 
     def __init__(self, device, photoweb, ip_addr):
-        self._connmgr = device[CN_MGR_SERVICE]
-        self._avtransport = device[AVT_SERVICE]
+        self._connmgr = [s for s in device if s.serviceType ==
+                         CONNMANAGER_SERVICE_TYPE][0]
+        self._avtransport = [s for s in device if s.serviceType ==
+                             AVTRANSPORT_SERVICE_TYPE][0]
         self.msg = lambda ll, msg: log.msg('(-> %s) %s' % (device.friendlyName, msg), ll=ll)
         self._photoweb = photoweb
         self._instance_id = self.allocate_instance_id()

@@ -7,17 +7,26 @@ from twisted.internet import defer
 class TestAVControlPoint(unittest.TestCase):
 
     def setUp(self):
+        # Setup AVTransport service
         self.avtransport = mock.Mock()
+        self.avtransport.serviceId = 'urn:upnp-org:serviceId:AVTransport'
+        self.avtransport.serviceType = 'urn:schemas-upnp-org:service:AVTransport:1'
+
+        # Setup ConnectionManager service
         self.connmgr = mock.Mock()
+        self.connmgr.serviceId = 'urn:upnp-org:serviceId:ConnectionManager'
+        self.connmgr.serviceType = 'urn:schemas-upnp-org:service:ConnectionManager:1'
+
         def gsbyid(id):
-            if id == 'urn:upnp-org:serviceId:AVTransport':
-                return self.avtransport
-            elif id == 'urn:upnp-org:serviceId:ConnectionManager':
-                return self.connmgr
+            all = [self.avtransport, self.conngr]
+            match = [s for s in all if s.serviceId == id]
+            if len(match) == 1:
+                return match[0]
             else:
-                raise ValueError("Unknown id: " + id)
+                raise ValueError("Unknown or ambiguous id: " + id)
         device = mock.MagicMock()
         device.__getitem__ = mock.Mock(side_effect=gsbyid)
+        device.__iter__.return_value = [self.avtransport, self.connmgr]
         self.avcp = AVControlPoint(device, None, "127.0.0.1")
 
         # mock away instance ID business since these methods check for 

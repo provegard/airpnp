@@ -88,16 +88,21 @@ class DeviceDiscoveryService(MultiService):
 
     def _is_device_interesting(self, device):
         # the device must have an approved device type
-        if len(self._dev_types) > 0 and not device.deviceType in self._dev_types:
+        compat = [d for d in self._dev_types 
+                  if are_service_types_compatible(d, device.deviceType)]
+        if self._dev_types and not compat:
             reason = "device type %s is not recognized" % (device.deviceType, )
             return False, reason
 
         # the device must contain all required services
-        req_services = set(self._req_services)
-        act_services = set([s.serviceId for s in device])
-        if not req_services.issubset(act_services):
-            missing = req_services.difference(act_services)
-            reason = "services %s are missing" % (list(missing), )
+        missing = []
+        for rs in self._req_services:
+            matches = [s.serviceType for s in device
+                       if are_service_types_compatible(rs, s.serviceType)]
+            if not matches:
+                missing.append(rs)
+        if missing:
+            reason = "services %s are missing" % (missing, )
             return False, reason
 
         # passed all tests, device is interesting
@@ -152,7 +157,10 @@ class DeviceDiscoveryService(MultiService):
 
     def _build_device(self, umessage):
         """Start building a device if it seems to be a proper one."""
-        if umessage.get_type() in self._sn_types:
+        acttype = umessage.get_type()
+        compat = [s for s in self._sn_types 
+                  if are_service_types_compatible(s, acttype)]
+        if compat:
             udn = umessage.get_udn()
             builder = DeviceBuilder(self._send_soap_message,
                                     self._is_device_interesting)
