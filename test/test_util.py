@@ -435,6 +435,10 @@ def test_service_compatibility(): # generator function
     # malformed required
     yield (check_compatibility, 'ConnectionManager', 
            'urn:upnp-org:service:ConnectionManager:1', False)
+    # same type, no version
+    yield (check_compatibility, 'upnp:rootdevice', 'upnp:rootdevice', True)
+    # different types, no version
+    yield (check_compatibility, 'upnp:rootdevice', 'upnp:smthelse', False)
 
 
 def check_compatibility(req, act, exp_outcome):

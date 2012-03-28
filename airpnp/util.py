@@ -233,11 +233,21 @@ def create_device_id(data):
 
 
 def are_service_types_compatible(required, actual):
+    if required == actual:
+        return True
     rparts = rsplit(required, ':', 1)
     aparts = rsplit(actual, ':', 1)
     if len(rparts) != 2 or len(aparts) != 2:
         return False
     rtype, rver = rparts
     atype, aver = aparts
-    return rtype == atype and int(aver) >= int(rver)
+    if rtype != atype:
+        return False
+    if rver == aver:
+        return True
+    try:
+        return int(aver) >= int(rver)
+    except ValueError:
+        # Not numbers, and different
+        return False
 
